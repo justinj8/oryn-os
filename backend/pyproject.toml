@@ -50,7 +50,11 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
-filterwarnings = ["ignore::DeprecationWarning"]
+filterwarnings = [
+  "ignore::DeprecationWarning",
+  # Temporal evicts terminated test workflows; their suspended coroutines are closed, not leaked.
+  "ignore:Exception ignored in.*_await_approval:pytest.PytestUnraisableExceptionWarning",
+]
 
 [tool.ruff]
 line-length = 120
