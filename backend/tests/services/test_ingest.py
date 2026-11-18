@@ -9,12 +9,8 @@ from tests.workflow_factory import make_workflow
 
 async def test_duplicate_event_starts_one_run(tenant, temporal_env) -> None:
     await make_workflow(tenant, GOLDEN)
-    r1 = await ingest_event(
-        temporal_env.client, tenant.id, "lead.created", "web", LEAD, "lead-123", task_queue="nowhere"
-    )
-    r2 = await ingest_event(
-        temporal_env.client, tenant.id, "lead.created", "web", LEAD, "lead-123", task_queue="nowhere"
-    )
+    r1 = await ingest_event(temporal_env.client, tenant.id, "lead.created", "web", LEAD, "lead-123")
+    r2 = await ingest_event(temporal_env.client, tenant.id, "lead.created", "web", LEAD, "lead-123")
     assert r1.created and not r2.created
     assert len(r1.run_ids) == 1 and r2.run_ids == r1.run_ids and r2.event_id == r1.event_id
     async with owner_session() as s:
@@ -34,13 +30,12 @@ async def test_trigger_filter_matching(tenant, temporal_env) -> None:
         "phone",
         {**LEAD, "source": "phone"},
         "k-phone",
-        task_queue="nowhere",
     )
-    web = await ingest_event(temporal_env.client, tenant.id, "lead.created", "web", LEAD, "k-web", task_queue="nowhere")
+    web = await ingest_event(temporal_env.client, tenant.id, "lead.created", "web", LEAD, "k-web")
     assert phone.run_ids == [] and len(web.run_ids) == 1
 
 
 async def test_disabled_workflow_ignored(tenant, temporal_env) -> None:
     await make_workflow(tenant, GOLDEN, enabled=False)
-    r = await ingest_event(temporal_env.client, tenant.id, "lead.created", "web", LEAD, "k1", task_queue="nowhere")
+    r = await ingest_event(temporal_env.client, tenant.id, "lead.created", "web", LEAD, "k1")
     assert r.created and r.run_ids == []

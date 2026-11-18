@@ -68,7 +68,8 @@ async def test_rejected_discount_still_books(env, tenant, acts) -> None:
         assert (await s.execute(select(func.count()).select_from(SbCalendarEvent))).scalar_one() == 1
 
 
-async def test_approval_timeout_escalates_then_auto_rejects(env, tenant, acts) -> None:
+async def test_approval_timeout_escalates_then_auto_rejects(isolated_temporal_env, tenant, acts) -> None:
+    env = isolated_temporal_env
     async with worker(env.client, acts):
         h, _ = await start(env.client, tenant)
         res = await h.result()  # nobody answers; time-skipping fast-forwards the timers

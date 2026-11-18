@@ -30,7 +30,9 @@ async def _clean_db() -> None:
 async def _terminate_workflows(request):
     """Terminate whatever workflows a test left running. The time-skipping test server can't
     fast-forward time while any workflow has an unprocessed task, so leftovers would stall
-    later tests that rely on time skipping."""
+    later tests that rely on time skipping. (Tests that start workflows must also run a worker
+    while they do: a workflow task that was never picked up keeps time-skipping locked even
+    after the workflow is terminated.)"""
     yield
     if not {"temporal_env", "api"} & set(request.fixturenames):
         return
@@ -77,6 +79,18 @@ async def client():
 
 @pytest.fixture(scope="session")
 async def temporal_env():
+    from temporalio.contrib.pydantic import pydantic_data_converter
+    from temporalio.testing import WorkflowEnvironment
+
+    env = await WorkflowEnvironment.start_time_skipping(data_converter=pydantic_data_converter)
+    yield env
+    await env.shutdown()
+
+
+@pytest.fixture
+async def isolated_temporal_env():
+    """A private time-skipping server for tests that fast-forward timers. The shared server can't
+    skip time while *any* workflow from an earlier test has an unprocessed task."""
     from temporalio.contrib.pydantic import pydantic_data_converter
     from temporalio.testing import WorkflowEnvironment
 

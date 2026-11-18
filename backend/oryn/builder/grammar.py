@@ -59,7 +59,8 @@ WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", 
 
 R_TRIGGER = re.compile(
     r"^(?:when|whenever)\s+(?:a\s+|an\s+)?(?:new\s+)?(?P<noun>lead|ticket|invoice|call|email|message)s?\s+"
-    r"(?:arrives|comes in|is created|is overdue|becomes overdue|is received|is submitted|is opened)\b[,\s]*(?P<rest>.*)$",
+    r"(?:arrives|comes in|is created|is overdue|becomes overdue|is received|is submitted|is opened)\b"
+    r"[,\s]*(?P<rest>.*)$",
     re.I,
 )
 R_SCHEDULE = re.compile(
