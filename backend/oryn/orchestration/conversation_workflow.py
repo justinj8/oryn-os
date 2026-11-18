@@ -74,12 +74,15 @@ ConversationInput.model_rebuild()
 
 @workflow.defn(name="ConversationWorkflow")
 class ConversationWorkflow:
-    def __init__(self) -> None:
-        self.inp: ConversationInput | None = None
-        self.role = AgentRole.support
-        self.blackboard: dict[str, Any] = {}
-        self.replies: dict[str, AgentReply] = {}
-        self.turns = 0
+    # workflow.init gives the constructor the input, so state exists before *any* handler runs.
+    # Without it, a first message delivered in the same task as the start reaches send() before run().
+    @workflow.init
+    def __init__(self, inp: ConversationInput) -> None:
+        self.inp: ConversationInput | None = inp
+        self.role = inp.agent_role
+        self.blackboard: dict[str, Any] = dict(inp.blackboard)
+        self.replies: dict[str, AgentReply] = dict(inp.replies)
+        self.turns = inp.turns
         self.lock = asyncio.Lock()
         self.last_activity: datetime = datetime.min.replace(tzinfo=UTC)
         self.pending_approval_id = None
@@ -267,8 +270,6 @@ class ConversationWorkflow:
     # ------------------------------------------------------------------ main
     @workflow.run
     async def run(self, inp: ConversationInput) -> str:
-        self.inp = inp
-        self.role, self.blackboard, self.replies, self.turns = inp.agent_role, inp.blackboard, inp.replies, inp.turns
         self.last_activity = workflow.now()
         await self._quick(
             OrynActivities.mark_run,

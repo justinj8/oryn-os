@@ -19,7 +19,7 @@ export function DailyBars({ data, format, label }: { data: Point[]; format: (n: 
               labelFormatter={(d) => tick(String(d))}
               formatter={(v) => [format(Number(v)), label]}
             />
-            <Bar dataKey="value" fill="var(--series-1)" radius={[4, 4, 0, 0]} maxBarSize={28} />
+            <Bar dataKey="value" fill="var(--series-1)" radius={[4, 4, 0, 0]} maxBarSize={28} isAnimationActive={false} />
           </BarChart>
         </ResponsiveContainer>
       </div>

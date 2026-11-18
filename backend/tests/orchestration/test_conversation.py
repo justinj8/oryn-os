@@ -57,3 +57,28 @@ async def test_large_refund_needs_admin(temporal_env, tenant, acts, invoice) -> 
         r = await _say(temporal_env, tenant, "Please refund $750 on INV-1001")
     async with owner_session() as s:
         assert (await s.get(Approval, r.approval_id)).min_role == "admin"
+
+
+async def test_first_message_delivered_with_workflow_start(temporal_env, tenant, acts) -> None:
+    """Regression: when the first update arrives in the same workflow task as the start, the
+    update handler runs before run(). Conversation state must already exist (workflow.init)."""
+    import asyncio
+
+    from oryn.orchestration.client import get_task_queue
+    from oryn.orchestration.conversation_workflow import ConversationInput, ConversationWorkflow
+    from oryn.services.conversations import get_or_create_conversation
+
+    conv, run, role = await get_or_create_conversation(tenant.id, "chat", "race-1")
+    handle = await temporal_env.client.start_workflow(
+        ConversationWorkflow.run,
+        ConversationInput(tenant_id=tenant.id, conversation_id=conv.id, run_id=run.id, channel="chat", agent_role=role),
+        id=conv.temporal_workflow_id,
+        task_queue=get_task_queue(),
+    )
+    pending = asyncio.create_task(
+        handle.execute_update(ConversationWorkflow.send, UserMessage(text="hello there", message_id="m-race"))
+    )
+    await asyncio.sleep(1.0)  # start + update are now both waiting for the first workflow task
+    async with worker(temporal_env.client, acts):
+        reply = await asyncio.wait_for(pending, 20)
+    assert reply.status == "ok"

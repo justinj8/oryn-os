@@ -40,7 +40,8 @@ export function Layout() {
 
   return (
     <div className="min-h-screen md:grid md:grid-cols-[232px_1fr]">
-      <aside className="bg-rail text-rail-ink md:sticky md:top-0 md:h-screen md:overflow-y-auto">
+      <aside className="bg-rail text-rail-ink">
+        <div className="md:sticky md:top-0 md:h-screen md:overflow-y-auto">
         <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
           <img src="/favicon.svg" alt="" className="h-7 w-7" />
           <span className="font-display text-xl font-semibold text-white">Oryn OS</span>
@@ -94,6 +95,7 @@ export function Layout() {
           <button onClick={logout} className="mt-2 inline-flex items-center gap-1.5 text-xs hover:text-white">
             <LogOut size={13} aria-hidden /> Sign out
           </button>
+        </div>
         </div>
       </aside>
       <main className="min-w-0 px-4 py-6 md:px-8 md:py-8">

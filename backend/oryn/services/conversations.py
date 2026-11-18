@@ -15,6 +15,13 @@ from oryn.models import AgentRole, Conversation, Run, RunStatus, Tenant
 from oryn.orchestration.client import get_task_queue
 from oryn.orchestration.conversation_workflow import AgentReply, ConversationInput, ConversationWorkflow, UserMessage
 
+CHANNEL_TITLES = {
+    "chat": "Chat with",
+    "sms": "Texts with",
+    "voice": "Call from",
+    "email": "Email from",
+    "api": "API session with",
+}
 DEFAULT_CHANNEL_AGENTS = {
     "chat": "support",
     "sms": "support",
@@ -49,7 +56,7 @@ async def get_or_create_conversation(
                     id=run_id,
                     tenant_id=tenant_id,
                     kind="conversation",
-                    title=f"{channel.upper()} · {who}"[:300],
+                    title=f"{CHANNEL_TITLES.get(channel, 'Conversation with')} {who}"[:300],
                     temporal_workflow_id=wf_id,
                     status=RunStatus.running,
                     started_at=datetime.now(UTC),
