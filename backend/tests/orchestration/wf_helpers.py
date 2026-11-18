@@ -11,6 +11,7 @@ from oryn.core.db import owner_session
 from oryn.models import Run
 from oryn.orchestration.activities import OrynActivities
 from oryn.orchestration.conversation_workflow import ConversationWorkflow
+from oryn.orchestration.mcp_action_workflow import McpActionWorkflow
 from oryn.orchestration.models import RunInput, RunState
 from oryn.orchestration.run_workflow import OrynRunWorkflow
 from oryn.workflows.dsl import WorkflowDefinition
@@ -47,7 +48,11 @@ async def worker(client: Client, acts: OrynActivities, sticky: bool = True):
     # sticky=False mimics a crashed worker's replacement: no cached workflow state at all.
     kw = {} if sticky else {"max_cached_workflows": 0}
     async with Worker(
-        client, task_queue=tq(), workflows=[OrynRunWorkflow, ConversationWorkflow], activities=acts.all(), **kw
+        client,
+        task_queue=tq(),
+        workflows=[OrynRunWorkflow, ConversationWorkflow, McpActionWorkflow],
+        activities=acts.all(),
+        **kw,
     ):
         yield
 

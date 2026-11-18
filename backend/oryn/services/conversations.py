@@ -25,12 +25,16 @@ DEFAULT_CHANNEL_AGENTS = {
 
 
 async def get_or_create_conversation(
-    tenant_id: uuid.UUID, channel: str, external_id: str, contact: dict[str, Any] | None = None
+    tenant_id: uuid.UUID,
+    channel: str,
+    external_id: str,
+    contact: dict[str, Any] | None = None,
+    agent_role: AgentRole | None = None,
 ) -> tuple[Conversation, Run, AgentRole]:
     async with tenant_session(tenant_id) as s:
         tenant = await s.get(Tenant, tenant_id)
         agents = {**DEFAULT_CHANNEL_AGENTS, **((tenant.settings or {}).get("channel_agents", {}) if tenant else {})}
-        role = AgentRole(agents.get(channel, "support"))
+        role = agent_role or AgentRole(agents.get(channel, "support"))
         conv = (
             await s.execute(
                 select(Conversation).where(Conversation.channel == channel, Conversation.external_id == external_id)
@@ -83,8 +87,9 @@ async def send_message(
     msg: UserMessage,
     contact: dict[str, Any] | None = None,
     address: str | None = None,
+    agent_role: AgentRole | None = None,
 ) -> AgentReply:
-    conv, run, role = await get_or_create_conversation(tenant_id, channel, external_id, contact)
+    conv, run, role = await get_or_create_conversation(tenant_id, channel, external_id, contact, agent_role)
     # Start-or-reuse, then update. (Equivalent to update-with-start, which the local test server lacks.)
     handle = await client.start_workflow(
         ConversationWorkflow.run,
