@@ -50,7 +50,9 @@ async def get_or_create_conversation(
         if conv is None:
             conv_id, run_id = uuid.uuid4(), uuid.uuid4()
             wf_id = f"{tenant_id}:conv:{conv_id}"
-            who = (contact or {}).get("name") or (contact or {}).get("email") or external_id
+            c = contact or {}
+            anonymous = {"chat": "a website visitor", "api": "an API client"}.get(channel, external_id)
+            who = c.get("name") or c.get("email") or c.get("phone") or anonymous
             s.add(
                 Run(
                     id=run_id,

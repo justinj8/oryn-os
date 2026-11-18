@@ -27,6 +27,10 @@ async def test_chat_booking_conversation(temporal_env, tenant, acts) -> None:
         conv = (await s.execute(select(Conversation))).scalar_one()
     assert msgs == ["in", "out", "in", "out"]
     assert conv.channel == "chat" and conv.external_id == "sess-1"
+    async with owner_session() as s:
+        from oryn.models import Run
+
+        assert (await s.get(Run, conv.run_id)).title == "Chat with a website visitor"
 
 
 async def test_duplicate_message_id_returns_same_reply(temporal_env, tenant, acts) -> None:
