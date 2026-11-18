@@ -1,7 +1,5 @@
 from decimal import Decimal
 
-import pytest
-
 from oryn.core.config import Settings
 from oryn.llm.factory import get_llm_provider
 from oryn.llm.pricing import cost_usd, estimate_tokens
@@ -22,14 +20,12 @@ def test_estimate_tokens() -> None:
     assert estimate_tokens("abcd" * 10) == 10
 
 
-@pytest.mark.xfail(strict=True, reason="ReplayProvider arrives in Task 9")
 def test_factory_defaults_to_replay() -> None:
     from oryn.llm.replay.provider import ReplayProvider
 
     assert isinstance(get_llm_provider(Settings()), ReplayProvider)
 
 
-@pytest.mark.xfail(strict=True, reason="ReplayProvider arrives in Task 9")
 def test_factory_needs_key_for_anthropic() -> None:
     p = get_llm_provider(Settings(llm_provider="anthropic", anthropic_api_key=None))
     assert type(p).__name__ != "AnthropicProvider"
