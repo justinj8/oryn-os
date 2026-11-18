@@ -9,6 +9,10 @@ from oryn.core.logging import configure_logging, log
 from oryn.orchestration.activities import OrynActivities
 from oryn.orchestration.client import get_temporal_client
 
+# Each running agent step holds one 'app' pool connection (pool 20 + overflow 10), so keep
+# concurrent activities under the pool size; extra work simply waits in Temporal's queue.
+MAX_CONCURRENT_ACTIVITIES = 20
+
 
 def workflows() -> list:
     from oryn.orchestration.run_workflow import OrynRunWorkflow

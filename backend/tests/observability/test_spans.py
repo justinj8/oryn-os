@@ -68,3 +68,30 @@ async def test_bus_isolates_tenants() -> None:
     await bus.publish(LiveEvent(type="run.updated", tenant_id=a, run_id=None, data={"mine": True}))
     await asyncio.wait_for(task, 5)
     assert got[0].data == {"mine": True}
+
+
+async def test_span_writes_do_not_need_the_step_pool() -> None:
+    """Regression: an agent step holds a pooled connection for its whole transaction, and its
+    span writes need their own short transactions. If both came from one pool, N concurrent
+    steps could hold every connection while waiting for one more — a pool deadlock."""
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from oryn.core import db
+    from oryn.core.config import get_settings
+    from oryn.core.db import tenant_session
+
+    t = await make_tenant("acme")
+    rid = await _run(t)
+    saved = db._engines.pop("app", None)
+    db._engines["app"] = create_async_engine(
+        get_settings().database_url_app, pool_size=1, max_overflow=0, pool_timeout=1
+    )
+    try:
+        async with tenant_session(t.id):  # the step's transaction holds the only app connection
+            sink = DbSpanSink(t.id, rid, get_event_bus(), OffsetClock(0))
+            sid = await asyncio.wait_for(sink.start(SpanKind.tool_call, "x"), 5)
+            await sink.end(sid, {"ok": True})
+    finally:
+        await db._engines.pop("app").dispose()
+        if saved:
+            db._engines["app"] = saved

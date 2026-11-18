@@ -46,7 +46,7 @@ class DbSpanSink:
             started_at=self.clock.now(),
             attempt=self.attempt,
         )
-        async with tenant_session(self.tenant_id) as s:
+        async with tenant_session(self.tenant_id, pool="spans") as s:
             s.add(span)
         await self.bus.publish(
             LiveEvent(
@@ -72,7 +72,7 @@ class DbSpanSink:
         cost: Decimal | None = None,
         simulated: bool = False,
     ) -> None:
-        async with tenant_session(self.tenant_id) as s:
+        async with tenant_session(self.tenant_id, pool="spans") as s:
             span = await s.get(Span, span_id)
             if span is None:
                 return
