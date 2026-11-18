@@ -5584,6 +5584,14 @@
             "type": "string",
             "title": "Temporal Workflow Id"
           },
+          "route": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Route",
+            "default": []
+          },
           "blackboard": {
             "additionalProperties": true,
             "type": "object",
@@ -5739,6 +5747,14 @@
           "temporal_workflow_id": {
             "type": "string",
             "title": "Temporal Workflow Id"
+          },
+          "route": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Route",
+            "default": []
           }
         },
         "type": "object",

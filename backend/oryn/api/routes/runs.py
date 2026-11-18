@@ -34,6 +34,7 @@ class RunOut(BaseModel):
     outcome_summary: str | None
     error: str | None
     temporal_workflow_id: str
+    route: list[str] = []  # agents that held the run, in order (Sales → Scheduler …)
 
     @classmethod
     def of(cls, r: Run) -> "RunOut":
@@ -151,8 +152,25 @@ async def list_runs(
         q = q.where(Run.started_at < before)
     async with tenant_session(ctx.tenant_id) as s:
         rows = (await s.execute(q)).scalars().all()
-    items = [RunOut.of(r) for r in rows[:limit]]
+        routes = await _routes(s, [r.id for r in rows[:limit]])
+    items = [RunOut.of(r).model_copy(update={"route": routes.get(r.id, [])}) for r in rows[:limit]]
     return RunPage(items=items, next_cursor=items[-1].started_at if len(rows) > limit else None)
+
+
+async def _routes(s, run_ids: list[uuid.UUID]) -> dict[uuid.UUID, list[str]]:
+    """Ordered, de-duplicated agent names per run, from its agent spans."""
+    if not run_ids:
+        return {}
+    rows = await s.execute(
+        select(Span.run_id, Span.name).where(Span.run_id.in_(run_ids), Span.kind == "agent").order_by(Span.started_at)
+    )
+    out: dict[uuid.UUID, list[str]] = {}
+    for run_id, name in rows:
+        agent = name.split(" · ")[0]
+        route = out.setdefault(run_id, [])
+        if not route or route[-1] != agent:
+            route.append(agent)
+    return out
 
 
 async def _get_run(s, run_id: uuid.UUID) -> Run:

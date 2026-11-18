@@ -37,6 +37,7 @@
   --divert: #7556c2;
   --fail: #c23b4a;
   --idle: #8a96a3;
+  --series-1: #5469c9; /* validated: chart series on light panel */
   color-scheme: light;
 }
 
@@ -56,6 +57,7 @@
     --divert: #a28ae0;
     --fail: #e46b78;
     --idle: #6b7785;
+    --series-1: #6f84de; /* validated: chart series on dark panel */
     color-scheme: dark;
   }
 }

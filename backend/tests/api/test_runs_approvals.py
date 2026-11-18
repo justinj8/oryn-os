@@ -88,6 +88,8 @@ async def test_decision_signals_workflow(api, tenant, temporal_env, acts) -> Non
         a = await s.get(Approval, approval.id)
         assert a.status == "approved" and a.decided_by == op.id
         assert "approval.approved" in (await s.execute(select(AuditLog.action))).scalars().all()
+    page = (await api.get("/api/runs", headers=auth_headers(op, tenant))).json()
+    assert page["items"][0]["route"] == ["Sales", "Scheduler"]
     spans = (await api.get(f"/api/runs/{a.run_id}/spans", headers=auth_headers(op, tenant))).json()
     assert any(sp["kind"] == "handoff" for sp in spans)
 

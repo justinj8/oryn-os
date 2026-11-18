@@ -1445,6 +1445,11 @@ export interface components {
             error: string | null;
             /** Temporal Workflow Id */
             temporal_workflow_id: string;
+            /**
+             * Route
+             * @default []
+             */
+            route: string[];
             /** Blackboard */
             blackboard: {
                 [key: string]: unknown;
@@ -1495,6 +1500,11 @@ export interface components {
             error: string | null;
             /** Temporal Workflow Id */
             temporal_workflow_id: string;
+            /**
+             * Route
+             * @default []
+             */
+            route: string[];
         };
         /** RunPage */
         RunPage: {
