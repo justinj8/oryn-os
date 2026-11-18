@@ -137,3 +137,4 @@ def test_intents() -> None:
     assert classify("hello there") is Intent.greeting
     assert classify("my furnace is making a weird noise") is Intent.support_issue
     assert classify("xyzzy") is Intent.unknown
+    assert classify("What is your refund policy?") is Intent.support_issue

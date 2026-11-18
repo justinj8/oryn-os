@@ -18,6 +18,8 @@ class Intent(StrEnum):
 
 
 _RULES: list[tuple[Intent, tuple[str, ...]]] = [
+    # Questions *about* a policy are knowledge-base questions, not requests to act.
+    (Intent.support_issue, ("policy", "policies", "how do refunds work")),
     (Intent.refund, ("refund", "money back", "chargeback", "overcharged")),
     (Intent.reschedule, ("reschedule", "move my appointment", "change my appointment", "cancel my appointment")),
     (

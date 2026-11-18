@@ -313,7 +313,9 @@ class ConversationWorkflow:
 
     async def _record_turn(self, msg: UserMessage, reply: AgentReply) -> None:
         await self._log("in", msg.text, msg.message_id)
-        await self._log("out", reply.text, msg.message_id)
+        # Email replies are actually sent; SMS/voice/chat replies go back in the HTTP response.
+        assert self.inp
+        await self._log("out", reply.text, msg.message_id, deliver=self.inp.channel == "email")
 
     async def _turn(self, msg: UserMessage) -> AgentReply:
         out = await self._agent(msg.text)

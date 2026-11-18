@@ -56,8 +56,7 @@ async def build_connector_set(
             attempt=attempt,
         )
 
-    messaging: Messaging = SandboxMessaging(session, tenant_id, faults(ConnectorKind.email), now=now)
-    messaging = _real_messaging(settings, messaging)
+    messaging = _real_messaging(settings, SandboxMessaging(session, tenant_id, faults(ConnectorKind.email), now=now))
     return ConnectorSet(
         crm=SandboxCRM(session, tenant_id, faults(ConnectorKind.crm)),
         calendar=SandboxCalendar(session, tenant_id, faults(ConnectorKind.calendar), tz=tz, now=now),
@@ -68,6 +67,40 @@ async def build_connector_set(
     )
 
 
-def _real_messaging(settings: Settings, sandbox: Messaging) -> Messaging:
-    """Hook for real providers (Twilio/SMTP), filled in by the channels module."""
-    return sandbox
+class CompositeMessaging:
+    """Routes each channel to its provider: real Twilio/SMTP when configured, else the sandbox."""
+
+    def __init__(self, sms, email, chat: SandboxMessaging) -> None:
+        self.sms, self.email, self.chat = sms, email, chat
+
+    @property
+    def provider(self) -> str:
+        return f"sms={self.sms.provider},email={self.email.provider}"
+
+    async def send_sms(self, to, body, idempotency_key, conversation_id=None):
+        return await self.sms.send_sms(to, body, idempotency_key, conversation_id)
+
+    async def send_email(self, to, subject, body, idempotency_key, conversation_id=None):
+        return await self.email.send_email(to, subject, body, idempotency_key, conversation_id)
+
+    async def send_chat(self, conversation_id, body, idempotency_key):
+        return await self.chat.send_chat(conversation_id, body, idempotency_key)
+
+
+def _real_messaging(settings: Settings, sandbox: SandboxMessaging) -> Messaging:
+    sms: object = sandbox
+    email: object = sandbox
+    if settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from_number:
+        from oryn.connectors.twilio import TwilioMessaging
+
+        sms = TwilioMessaging(
+            settings.twilio_account_sid,
+            settings.twilio_auth_token.get_secret_value(),
+            settings.twilio_from_number,
+            sandbox,
+        )
+    if settings.smtp_url:
+        from oryn.connectors.smtp import SmtpMessaging
+
+        email = SmtpMessaging(settings.smtp_url, settings.smtp_from, sandbox)
+    return CompositeMessaging(sms, email, sandbox)  # type: ignore[return-value]
