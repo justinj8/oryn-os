@@ -4,6 +4,7 @@ Activities are methods on ``OrynActivities`` so tests and the worker can inject 
 (LLM provider, memory store, event bus). Each opens its own tenant-scoped transaction.
 """
 
+import random
 import uuid
 from dataclasses import dataclass
 from datetime import timedelta
@@ -128,9 +129,13 @@ class OrynActivities:
                 status="error",
             )
         clock = OffsetClock(inp.time_offset_seconds)
+        # Fault injection is seeded per (run, step, attempt): demos and tests replay identically.
+        rng = random.Random(f"{inp.run_id}:{inp.step_key}:{sink.attempt}")
         try:
             async with tenant_session(inp.tenant_id) as s:
-                connectors = await build_connector_set(s, inp.tenant_id, self.settings, now=clock.now)
+                connectors = await build_connector_set(
+                    s, inp.tenant_id, self.settings, now=clock.now, rng=rng, attempt=sink.attempt
+                )
                 deps = AgentDeps(
                     llm=self.llm,
                     registry=self.registry,
@@ -191,12 +196,16 @@ class OrynActivities:
         return approval_id
 
     @activity.defn(name="update_approval_status")
-    async def update_approval_status(self, inp: UpdateApprovalInput) -> None:
+    async def update_approval_status(self, inp: UpdateApprovalInput) -> str:
+        """Changes a *pending* approval and returns the status it ends up in. If a human already
+        decided it, nothing changes and their decision is returned (decisions win races)."""
         clock = OffsetClock(inp.time_offset_seconds)
         async with tenant_session(inp.tenant_id) as s:
             a = await s.get(Approval, inp.approval_id)
-            if a is None or a.status != ApprovalStatus.pending:
-                return
+            if a is None:
+                return "missing"
+            if a.status != ApprovalStatus.pending:
+                return a.status.value
             a.status = inp.status
             if inp.min_role is not None:
                 a.min_role = inp.min_role

@@ -37,6 +37,7 @@ async def build_connector_set(
     settings: Settings,
     now: Callable[[], datetime] | None = None,
     rng: random.Random | None = None,
+    attempt: int = 1,
 ) -> ConnectorSet:
     now = now or (lambda: datetime.now(UTC))
     rng = rng or random.Random()
@@ -51,6 +52,8 @@ async def build_connector_set(
             float(cfg.get("failure_rate", settings.sandbox_failure_rate)),
             int(cfg.get("latency_ms", settings.sandbox_latency_ms)),
             rng,
+            fail_attempts=int(cfg.get("fail_attempts", 0)),
+            attempt=attempt,
         )
 
     messaging: Messaging = SandboxMessaging(session, tenant_id, faults(ConnectorKind.email), now=now)

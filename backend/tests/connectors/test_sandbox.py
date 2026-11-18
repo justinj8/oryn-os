@@ -142,3 +142,10 @@ async def test_build_connector_set_applies_tenant_fault_settings(session, tenant
     with pytest.raises(RetryableConnectorError):
         await cs.calendar.find_slots(30, 5, "any")
     await cs.crm.list_deals()  # crm has no fault override → succeeds
+
+
+async def test_fault_injector_fail_attempts_is_deterministic() -> None:
+    down = FaultInjector(0.0, 0, random.Random(1), fail_attempts=2, attempt=2)
+    with pytest.raises(RetryableConnectorError, match="outage"):
+        await down.maybe_fail("op")
+    await FaultInjector(0.0, 0, random.Random(1), fail_attempts=2, attempt=3).maybe_fail("op")

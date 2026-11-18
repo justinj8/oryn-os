@@ -1,0 +1,217 @@
+import pytest
+from sqlalchemy import func, select
+from temporalio.client import WorkflowFailureError
+from temporalio.contrib.pydantic import pydantic_data_converter
+from temporalio.testing import WorkflowEnvironment
+
+from oryn.connectors.errors import NonRetryableConnectorError
+from oryn.core.db import owner_session
+from oryn.llm.replay.provider import ReplayProvider
+from oryn.llm.types import LLMResult, ToolCall, Usage
+from oryn.models import (
+    Approval,
+    Connector,
+    ConnectorKind,
+    Outcome,
+    Run,
+    RunStatus,
+    SbActionLog,
+    SbCalendarEvent,
+    SbDeal,
+    Span,
+    SpanKind,
+)
+from oryn.orchestration.activities import OrynActivities
+from oryn.orchestration.models import ApprovalDecisionSignal
+from oryn.orchestration.run_workflow import OrynRunWorkflow
+from tests.orchestration.wf_helpers import GOLDEN, start, wait_state, worker
+
+
+@pytest.fixture(scope="module")
+async def env():
+    e = await WorkflowEnvironment.start_time_skipping(data_converter=pydantic_data_converter)
+    yield e
+    await e.shutdown()
+
+
+async def _approve(h, approved=True, comment=None):
+    st = await wait_state(h, "waiting_approval")
+    await h.signal(
+        OrynRunWorkflow.decide_approval,
+        ApprovalDecisionSignal(approval_id=st.pending_approval_id, approved=approved, comment=comment),
+    )
+    return st
+
+
+async def test_golden_path_completes(env, tenant, acts) -> None:
+    async with worker(env.client, acts):
+        h, rid = await start(env.client, tenant)
+        st = await _approve(h)
+        assert st.current_step == "qualify"
+        res = await h.result()
+    assert res.status == RunStatus.completed
+    assert "meeting_booked" in res.outcomes
+    async with owner_session() as s:
+        run = await s.get(Run, rid)
+        assert run.status == RunStatus.completed and run.total_cost_usd > 0 and run.blackboard["qualified"] is True
+        assert (await s.execute(select(func.count()).select_from(SbCalendarEvent))).scalar_one() == 1
+        assert (await s.execute(select(SbDeal.discount_pct))).scalar_one() == 15
+        kinds = set((await s.execute(select(Span.kind).where(Span.run_id == rid))).scalars())
+        assert {SpanKind.agent, SpanKind.llm_call, SpanKind.tool_call, SpanKind.approval, SpanKind.handoff} <= kinds
+        assert (await s.execute(select(Outcome.type))).scalars().all() == ["meeting_booked"]
+
+
+async def test_rejected_discount_still_books(env, tenant, acts) -> None:
+    async with worker(env.client, acts):
+        h, _ = await start(env.client, tenant)
+        await _approve(h, approved=False, comment="too generous")
+        res = await h.result()
+    assert res.status == RunStatus.completed
+    async with owner_session() as s:
+        assert (await s.execute(select(SbDeal.discount_pct))).scalar_one() == 0
+        assert (await s.execute(select(func.count()).select_from(SbCalendarEvent))).scalar_one() == 1
+
+
+async def test_approval_timeout_escalates_then_auto_rejects(env, tenant, acts) -> None:
+    async with worker(env.client, acts):
+        h, _ = await start(env.client, tenant)
+        res = await h.result()  # nobody answers; time-skipping fast-forwards the timers
+    assert res.status == RunStatus.completed
+    async with owner_session() as s:
+        a = (await s.execute(select(Approval))).scalar_one()
+        assert a.status == "rejected" and a.escalation_level == 2 and a.min_role == "owner"
+        assert a.comment == "no decision after 2 escalations"
+        assert (await s.execute(select(SbDeal.discount_pct))).scalar_one() == 0
+        assert (await s.execute(select(func.count()).select_from(SbCalendarEvent))).scalar_one() == 1
+
+
+async def test_transient_failures_are_retried(env, tenant, acts) -> None:
+    async with owner_session() as s:
+        cal = (await s.execute(select(Connector).where(Connector.kind == ConnectorKind.calendar))).scalar_one()
+        cal.settings = {"fail_attempts": 1}  # calendar is down for the first attempt
+    async with worker(env.client, acts):
+        h, rid = await start(env.client, tenant)
+        await _approve(h)
+        res = await h.result()
+    assert res.status == RunStatus.completed
+    async with owner_session() as s:
+        retries = (
+            await s.execute(
+                select(func.count()).select_from(Span).where(Span.run_id == rid, Span.kind == SpanKind.retry)
+            )
+        ).scalar_one()
+        assert retries == 1
+        assert (await s.execute(select(func.count()).select_from(SbCalendarEvent))).scalar_one() == 1
+
+
+class _FailReporting:
+    def __init__(self) -> None:
+        self.inner = ReplayProvider()
+
+    async def complete(self, **kw) -> LLMResult:
+        if kw["context"].agent_role == "reporting":
+            raise NonRetryableConnectorError("model rejected the request", provider="test", status_code=400)
+        return await self.inner.complete(**kw)
+
+
+async def test_non_retryable_failure_compensates(env, tenant, acts) -> None:
+    acts = OrynActivities(_FailReporting(), acts.memory, acts.bus, acts.registry, acts.settings)
+    definition = {
+        "name": "x",
+        "trigger": {"event": "e"},
+        "steps": [
+            {"id": "book", "type": "agent", "role": "scheduler", "goal": "Book a consult"},
+            {"id": "report", "type": "agent", "role": "reporting", "goal": "Report"},
+        ],
+    }
+    async with worker(env.client, acts):
+        h, rid = await start(env.client, tenant, definition)
+        res = await h.result()
+    assert res.status == RunStatus.failed
+    async with owner_session() as s:
+        run = await s.get(Run, rid)
+        assert run.status == RunStatus.failed and run.error
+        assert (await s.execute(select(SbCalendarEvent.status))).scalar_one() == "cancelled"
+
+
+async def test_approval_signal_after_completion_is_ignored(env, tenant, acts) -> None:
+    async with worker(env.client, acts):
+        h, _ = await start(env.client, tenant)
+        st = await wait_state(h, "waiting_approval")
+        sig = ApprovalDecisionSignal(approval_id=st.pending_approval_id, approved=True)
+        await h.signal(OrynRunWorkflow.decide_approval, sig)
+        await h.signal(OrynRunWorkflow.decide_approval, sig)  # double-click
+        await h.result()
+    async with owner_session() as s:
+        n = (
+            await s.execute(
+                select(func.count()).select_from(SbActionLog).where(SbActionLog.tool == "crm.apply_discount")
+            )
+        ).scalar_one()
+    assert n == 1
+
+
+class _PingPong:
+    async def complete(self, **kw) -> LLMResult:
+        role = kw["context"].agent_role
+        target = "scheduler" if role == "sales" else "sales"
+        return LLMResult(
+            text="",
+            tool_calls=[
+                ToolCall(
+                    id=f"h{len(kw['messages'])}",
+                    name="control.handoff",
+                    arguments={"role": target, "goal": "you take it"},
+                )
+            ],
+            usage=Usage(input_tokens=5, output_tokens=5),
+            model="m",
+            simulated=True,
+            stop_reason="tool_use",
+        )
+
+
+async def test_handoff_depth_cap(env, tenant, acts) -> None:
+    acts = OrynActivities(_PingPong(), acts.memory, acts.bus, acts.registry, acts.settings)
+    async with worker(env.client, acts):
+        h, _ = await start(env.client, tenant)
+        res = await h.result()
+    assert res.status == RunStatus.escalated
+    assert "handoff" in res.summary
+
+
+async def test_worker_restart_replays(env, tenant, acts) -> None:
+    async with worker(env.client, acts, sticky=False):
+        h, _rid = await start(env.client, tenant)
+        await wait_state(h, "waiting_approval")
+    # worker is gone; the workflow is parked durably in Temporal
+    async with worker(env.client, acts, sticky=False):
+        await _approve(h)
+        res = await h.result()
+    assert res.status == RunStatus.completed
+
+
+async def test_cancel_signal(env, tenant, acts) -> None:
+    async with worker(env.client, acts):
+        h, _rid = await start(env.client, tenant)
+        await wait_state(h, "waiting_approval")
+        await h.signal(OrynRunWorkflow.cancel)
+        res = await h.result()
+    assert res.status == RunStatus.cancelled
+    async with owner_session() as s:
+        assert (await s.execute(select(Approval.status))).scalar_one() == "cancelled"
+
+
+async def test_unqualified_lead_gets_nurture_email(env, tenant, acts) -> None:
+    from oryn.models import SbMessage
+    from tests.orchestration.wf_helpers import LEAD
+
+    async with worker(env.client, acts):
+        h, _ = await start(env.client, tenant, GOLDEN, {**LEAD, "budget_usd": 500, "requested_discount_pct": None})
+        res = await h.result()
+    assert res.status == RunStatus.completed and res.outcomes == ["lead_nurtured"]
+    async with owner_session() as s:
+        assert (await s.execute(select(SbMessage.subject))).scalar_one().startswith("Thanks for reaching out")
+
+
+_ = WorkflowFailureError

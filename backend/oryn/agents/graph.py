@@ -25,7 +25,7 @@ from oryn.agents.state import (
     Requirement,
     StepScope,
 )
-from oryn.connectors.errors import classify_error
+from oryn.connectors.errors import ErrorClass, classify_error
 from oryn.llm.pricing import cost_usd
 from oryn.llm.types import ChatMessage, ReplayContext, ToolCall
 from oryn.models import Agent, MemoryScope, OutcomeType, SpanKind
@@ -203,6 +203,10 @@ def build_agent_graph(deps: "AgentDeps", agent: Agent, scope: StepScope):
         except Exception as e:
             cls = classify_error(e)
             await deps.spans.end(span, {"error": str(e), "class": cls.value}, status="error")
+            if cls is not ErrorClass.non_retryable:
+                # Transient: fail the whole step so Temporal retries it from a clean transaction.
+                raise
+            # Permanent: tell the model so it can choose another path.
             return {"error": str(e), "class": cls.value}, None
         await deps.spans.end(span, result)
         return result, (
