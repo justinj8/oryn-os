@@ -6,7 +6,6 @@ from oryn.core.db import owner_session
 from oryn.core.tenancy import Role
 from oryn.models import Approval, AuditLog, Run, RunStatus
 from tests.factories import auth_headers, make_member, make_tenant
-from tests.orchestration.conftest import acts, tenant  # noqa: F401
 from tests.orchestration.wf_helpers import GOLDEN, LEAD, wait_state, worker
 from tests.workflow_factory import make_workflow
 
@@ -57,7 +56,7 @@ async def test_get_foreign_run_404(api, tenant) -> None:
     assert (await api.get(f"/api/runs/{rid}", headers=auth_headers(viewer, tenant))).status_code == 404
 
 
-async def _pending(api, tenant, temporal_env, acts):  # noqa: F811
+async def _pending(api, tenant, temporal_env, acts):
     await make_workflow(tenant, GOLDEN)
     fired = await _fire(api, tenant)
     from oryn.orchestration.run_workflow import OrynRunWorkflow
@@ -71,7 +70,7 @@ async def _pending(api, tenant, temporal_env, acts):  # noqa: F811
     return h, approval, OrynRunWorkflow
 
 
-async def test_decision_signals_workflow(api, tenant, temporal_env, acts) -> None:  # noqa: F811
+async def test_decision_signals_workflow(api, tenant, temporal_env, acts) -> None:
     async with worker(temporal_env.client, acts):
         h, approval, _ = await _pending(api, tenant, temporal_env, acts)
         op = await make_member(tenant, Role.operator)
@@ -93,7 +92,7 @@ async def test_decision_signals_workflow(api, tenant, temporal_env, acts) -> Non
     assert any(sp["kind"] == "handoff" for sp in spans)
 
 
-async def test_second_decision_returns_409(api, tenant, temporal_env, acts) -> None:  # noqa: F811
+async def test_second_decision_returns_409(api, tenant, temporal_env, acts) -> None:
     async with worker(temporal_env.client, acts):
         h, approval, _ = await _pending(api, tenant, temporal_env, acts)
         op1, op2 = await make_member(tenant, Role.operator), await make_member(tenant, Role.admin)
@@ -107,7 +106,7 @@ async def test_second_decision_returns_409(api, tenant, temporal_env, acts) -> N
         await h.result()
 
 
-async def test_operator_cannot_approve_admin_level(api, tenant, temporal_env, acts) -> None:  # noqa: F811
+async def test_operator_cannot_approve_admin_level(api, tenant, temporal_env, acts) -> None:
     async with worker(temporal_env.client, acts):
         h, approval, wf = await _pending(api, tenant, temporal_env, acts)
         async with owner_session() as s:
@@ -121,7 +120,7 @@ async def test_operator_cannot_approve_admin_level(api, tenant, temporal_env, ac
         await h.result()
 
 
-async def test_runs_list_and_cancel(api, tenant, temporal_env, acts) -> None:  # noqa: F811
+async def test_runs_list_and_cancel(api, tenant, temporal_env, acts) -> None:
     async with worker(temporal_env.client, acts):
         h, approval, _ = await _pending(api, tenant, temporal_env, acts)
         op = await make_member(tenant, Role.operator)

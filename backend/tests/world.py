@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-import pytest
+import pytest  # shared fixtures, registered as a pytest plugin in tests/conftest.py
 
 from oryn.core.db import owner_session
 from oryn.models import (

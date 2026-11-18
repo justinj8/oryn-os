@@ -50,6 +50,17 @@ class ApprovalDecisionSignal(BaseModel):
 class MarkRunInput(_TenantRun):
     status: RunStatus
     current_step: str | None = None
+    reopen: bool = False  # conversations can be resumed after they ended
+
+
+class ChannelMessageInput(_TenantRun):
+    conversation_id: uuid.UUID
+    channel: str
+    direction: str  # "in" | "out"
+    body: str
+    address: str | None = None
+    message_id: str
+    deliver: bool = False  # out-of-band follow-up: actually send through the channel connector
 
 
 class RequestApprovalInput(_TenantRun):

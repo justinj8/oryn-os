@@ -10,11 +10,16 @@ from oryn.core.config import get_settings
 from oryn.core.db import owner_session
 from oryn.models import Run
 from oryn.orchestration.activities import OrynActivities
+from oryn.orchestration.conversation_workflow import ConversationWorkflow
 from oryn.orchestration.models import RunInput, RunState
 from oryn.orchestration.run_workflow import OrynRunWorkflow
 from oryn.workflows.dsl import WorkflowDefinition
 
-TQ = get_settings().temporal_task_queue
+
+def tq() -> str:
+    return get_settings().temporal_task_queue
+
+
 LEAD = {
     "name": "Dana Reyes",
     "email": "dana@example.com",
@@ -41,7 +46,9 @@ GOLDEN = {
 async def worker(client: Client, acts: OrynActivities, sticky: bool = True):
     # sticky=False mimics a crashed worker's replacement: no cached workflow state at all.
     kw = {} if sticky else {"max_cached_workflows": 0}
-    async with Worker(client, task_queue=TQ, workflows=[OrynRunWorkflow], activities=acts.all(), **kw):
+    async with Worker(
+        client, task_queue=tq(), workflows=[OrynRunWorkflow, ConversationWorkflow], activities=acts.all(), **kw
+    ):
         yield
 
 
@@ -56,7 +63,7 @@ async def start(
     inp = RunInput(
         tenant_id=tenant.id, run_id=rid, definition=WorkflowDefinition.model_validate(definition), trigger=trigger
     )
-    h = await client.start_workflow(OrynRunWorkflow.run, inp, id=f"wf-{rid}", task_queue=TQ)
+    h = await client.start_workflow(OrynRunWorkflow.run, inp, id=f"wf-{rid}", task_queue=tq())
     return h, rid
 
 

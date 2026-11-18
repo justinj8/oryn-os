@@ -4,6 +4,7 @@ Activities are methods on ``OrynActivities`` so tests and the worker can inject 
 (LLM provider, memory store, event bus). Each opens its own tenant-scoped transaction.
 """
 
+import inspect
 import random
 import uuid
 from dataclasses import dataclass
@@ -25,11 +26,24 @@ from oryn.llm.factory import get_llm_provider
 from oryn.llm.types import LLMProvider
 from oryn.memory.embeddings import HashingEmbedder
 from oryn.memory.store import MemoryStore
-from oryn.models import Approval, ApprovalStatus, Outcome, Run, RunStatus, Span, SpanKind, Tenant
+from oryn.models import (
+    Approval,
+    ApprovalStatus,
+    Conversation,
+    Outcome,
+    Run,
+    RunStatus,
+    SbActionLog,
+    SbMessage,
+    Span,
+    SpanKind,
+    Tenant,
+)
 from oryn.observability.bus import EventBus, LiveEvent, get_event_bus
 from oryn.observability.clock import OffsetClock
 from oryn.observability.spans import DbSpanSink
 from oryn.orchestration.models import (
+    ChannelMessageInput,
     CompensateInput,
     ExecuteActionInput,
     FinalizeInput,
@@ -78,17 +92,11 @@ class OrynActivities:
         )
 
     def all(self) -> list:
+        """Every ``@activity.defn`` method, bound to this instance (registration can't drift)."""
         return [
-            self.mark_run,
-            self.run_agent_step,
-            self.request_approval,
-            self.update_approval_status,
-            self.execute_action,
-            self.send_notification,
-            self.record_outcome,
-            self.compensate,
-            self.finalize_run,
-            self.record_span_event,
+            getattr(self, name)
+            for name, fn in inspect.getmembers(type(self), inspect.isfunction)
+            if hasattr(fn, "__temporal_activity_definition")
         ]
 
     def _sink(self, tenant_id: uuid.UUID, run_id: uuid.UUID, offset: float) -> DbSpanSink:
@@ -103,8 +111,11 @@ class OrynActivities:
     async def mark_run(self, inp: MarkRunInput) -> None:
         async with tenant_session(inp.tenant_id) as s:
             run = await s.get(Run, inp.run_id)
-            if run and run.status not in (RunStatus.completed, RunStatus.failed, RunStatus.cancelled):
+            terminal = (RunStatus.completed, RunStatus.failed, RunStatus.cancelled, RunStatus.escalated)
+            if run and (inp.reopen or run.status not in terminal):
                 run.status = inp.status
+                if inp.reopen:
+                    run.ended_at = None
         await self._publish(
             "run.updated", inp.tenant_id, inp.run_id, {"status": inp.status.value, "current_step": inp.current_step}
         )
@@ -280,6 +291,46 @@ class OrynActivities:
                 await connectors.messaging.send_sms(to, body, key)
         await sink.event(
             SpanKind.notify, f"{inp.step.channel} → {to}", {"subject": subject, "template": inp.step.template}
+        )
+
+    @activity.defn(name="channel_message")
+    async def channel_message(self, inp: ChannelMessageInput) -> None:
+        """Logs a conversation turn to the transcript; with ``deliver`` it also sends it (follow-ups)."""
+        key = f"conv:{inp.conversation_id}:{inp.direction}:{inp.message_id}"
+        clock = OffsetClock(inp.time_offset_seconds)
+        async with tenant_session(inp.tenant_id) as s:
+            if (await s.execute(select(SbActionLog.id).where(SbActionLog.idempotency_key == key))).first():
+                return
+            if inp.deliver and inp.channel in ("sms", "email") and inp.address:
+                connectors = await build_connector_set(s, inp.tenant_id, self.settings, now=clock.now)
+                if inp.channel == "sms":
+                    await connectors.messaging.send_sms(inp.address, inp.body, key, inp.conversation_id)
+                else:
+                    await connectors.messaging.send_email(
+                        inp.address, "Following up", inp.body, key, inp.conversation_id
+                    )
+            else:
+                s.add(
+                    SbMessage(
+                        tenant_id=inp.tenant_id,
+                        channel=inp.channel,
+                        direction=inp.direction,
+                        to_addr=inp.address if inp.direction == "out" else None,
+                        from_addr=inp.address if inp.direction == "in" else None,
+                        body=inp.body,
+                        conversation_id=inp.conversation_id,
+                        sent_at=clock.now(),
+                    )
+                )
+                s.add(SbActionLog(tenant_id=inp.tenant_id, tool="channel_message", idempotency_key=key, result={}))
+            conv = await s.get(Conversation, inp.conversation_id)
+            if conv:
+                conv.last_message_at = clock.now()
+        await self._publish(
+            "message.sent",
+            inp.tenant_id,
+            inp.run_id,
+            {"conversation_id": str(inp.conversation_id), "direction": inp.direction},
         )
 
     @activity.defn(name="record_outcome")

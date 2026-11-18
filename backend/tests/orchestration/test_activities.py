@@ -147,3 +147,14 @@ async def test_compensate_cancels_bookings(acts, tenant, run_row) -> None:
     )
     async with owner_session() as s:
         assert (await s.execute(select(SbCalendarEvent.status))).scalar_one() == "cancelled"
+
+
+def test_every_activity_is_registered(acts) -> None:
+    import inspect
+
+    defined = {
+        name
+        for name, fn in inspect.getmembers(type(acts), inspect.isfunction)
+        if hasattr(fn, "__temporal_activity_definition")
+    }
+    assert defined and {f.__name__ for f in acts.all()} == defined

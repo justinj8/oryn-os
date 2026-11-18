@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
 from oryn import __version__
-from oryn.api.routes import admin, approvals, auth, events, runs, webhooks
+from oryn.api.routes import admin, approvals, auth, chat, events, runs, webhooks
 from oryn.core.config import get_settings
 from oryn.core.logging import configure_logging
 
@@ -24,4 +24,5 @@ def create_app() -> FastAPI:
     app.include_router(runs.router)
     app.include_router(approvals.router)
     app.include_router(webhooks.router)
+    app.include_router(chat.router)
     return app
