@@ -1,7 +1,7 @@
 COMPOSE := docker compose -f deploy/docker-compose.yml
 BACKEND := cd backend &&
 
-.PHONY: up down infra dev api worker migrate seed test test-backend test-frontend lint fmt chaos gen-api demo
+.PHONY: up down infra api worker migrate seed test test-backend test-frontend lint fmt chaos gen-api docs-check
 
 up: ## Build and start the whole stack (offline, no keys needed)
 	$(COMPOSE) --profile app up -d --build
@@ -46,3 +46,6 @@ gen-api:
 
 chaos:
 	./scripts/chaos.sh
+
+docs-check:
+	python3 scripts/check_doc_links.py

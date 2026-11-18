@@ -40,6 +40,8 @@ jobs:
       - run: uv run mypy oryn
       # Temporal tests use the SDK's time-skipping test server (downloaded on first use).
       - run: uv run pytest -q
+      - name: Docs reference real files and lines
+        run: python3 ../scripts/check_doc_links.py
 
   frontend:
     runs-on: ubuntu-latest
