@@ -73,7 +73,7 @@ def _task(st: ReplayState) -> ReplayMove:
 
 
 def _conversation(st: ReplayState) -> ReplayMove:
-    contact_id, email, name = _contact(st)
+    contact_id, _email, name = _contact(st)
     text = st.last_user()
     prior_slots = st.last("calendar.find_slots", turn_only=False) or None
     slots = ((prior_slots.result or {}).get("slots") if prior_slots else None) or []
