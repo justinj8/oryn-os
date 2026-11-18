@@ -10,6 +10,7 @@ from oryn.api.routes import (
     chat,
     connectors,
     events,
+    metrics,
     public_v1,
     runs,
     simulate,
@@ -45,4 +46,5 @@ def create_app() -> FastAPI:
     app.include_router(agents.router)
     app.include_router(connectors.router)
     app.include_router(simulate.router)
+    app.include_router(metrics.router)
     return app
