@@ -62,5 +62,91 @@ services:
     ports: ["${ORYN_TEMPORAL_UI_PORT:-8233}:8080"]
     mem_limit: 256m
 
+  # ------------------------------------------------------------------ application (profile: app)
+  migrate:
+    profiles: [app]
+    build: ../backend
+    command: [migrate]
+    environment: &app-env
+      DATABASE_URL_APP: postgresql+asyncpg://oryn_app:oryn_app@postgres:5432/oryn
+      DATABASE_URL_OWNER: postgresql+asyncpg://oryn_owner:oryn_owner@postgres:5432/oryn
+      REDIS_URL: redis://redis:6379/0
+      TEMPORAL_ADDRESS: temporal:7233
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:5173}
+    env_file:
+      - path: ../.env
+        required: false
+    depends_on:
+      postgres: { condition: service_healthy }
+    mem_limit: 256m
+
+  api:
+    profiles: [app]
+    build: ../backend
+    command: [api]
+    environment: *app-env
+    env_file:
+      - path: ../.env
+        required: false
+    ports: ["${ORYN_API_PORT:-8800}:8000"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      temporal: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 3s
+      retries: 40
+    mem_limit: 512m
+
+  worker:
+    profiles: [app]
+    build: ../backend
+    command: [worker]
+    environment: *app-env
+    env_file:
+      - path: ../.env
+        required: false
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      temporal: { condition: service_healthy }
+    restart: unless-stopped
+    mem_limit: 512m
+
+  seed:
+    profiles: [app]
+    build: ../backend
+    command: [seed, --days, "14"]
+    environment: *app-env
+    env_file:
+      - path: ../.env
+        required: false
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      worker: { condition: service_started }
+    restart: "no"
+    mem_limit: 384m
+
+  web:
+    profiles: [app]
+    build: ../frontend
+    ports: ["${ORYN_WEB_PORT:-5173}:80"]
+    depends_on:
+      api: { condition: service_healthy }
+    mem_limit: 64m
+
+  mcp:
+    profiles: [mcp]
+    build: ../backend
+    command: [mcp]
+    environment:
+      <<: *app-env
+      ORYN_API_KEY: ${ORYN_API_KEY:-}
+    ports: ["8765:8765"]
+    depends_on:
+      api: { condition: service_healthy }
+    mem_limit: 256m
+
 volumes:
   pgdata:

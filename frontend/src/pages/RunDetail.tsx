@@ -118,7 +118,7 @@ export default function RunDetail() {
                   <p className="font-medium">{a.description}</p>
                   <p className="text-ink-3">
                     {humanize(a.status)}
-                    {a.comment ? `: ${a.comment}` : ""} · needs {a.min_role}
+                    {a.comment ? `: ${a.comment}` : ""}. Needed an {a.min_role === "operator" ? "operator" : a.min_role} or above.
                   </p>
                 </li>
               ))}

@@ -7,6 +7,12 @@ import { Button, cx, Empty, ErrorNote, PageHeader, Section, Skeleton, Tag } from
 import { useToast } from "@/components/ui/toast";
 import { ago } from "@/lib/format";
 
+const AUTONOMY_SHORT: Record<string, string> = {
+  suggest: "Suggests only",
+  act_with_approval: "Asks before acting",
+  autonomous: "Acts on its own",
+};
+
 const AUTONOMY = {
   suggest: "Suggest only — every action needs a person's approval.",
   act_with_approval: "Act with approval — reads freely, asks before changing anything.",
@@ -130,7 +136,7 @@ function Memories() {
               <div>
                 <p>{m.content}</p>
                 <p className="text-xs text-ink-3">
-                  {m.subject_key.replace(/^contact:/, "")} · {ago(m.created_at)}
+                  About {m.subject_key.replace(/^contact:/, "")}, saved {ago(m.created_at)}
                 </p>
               </div>
               {can("admin") && (
@@ -170,10 +176,8 @@ export default function Agents() {
                 className={cx("shrink-0 rounded-md border px-3 py-2 text-left", current?.id === a.id ? "border-ink bg-panel" : "border-line hover:border-ink-3")}
               >
                 <span className="block font-medium">{a.name}</span>
-                <span className="text-sm text-ink-3 capitalize">
-                  {a.role} · {a.autonomy.replace(/_/g, " ")}
-                  {!a.enabled && " · off"}
-                </span>
+                <span className="block text-sm text-ink-3">{AUTONOMY_SHORT[a.autonomy]}</span>
+                {!a.enabled && <span className="text-sm text-fail">Turned off</span>}
               </button>
             ))}
           </nav>

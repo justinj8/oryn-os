@@ -212,3 +212,27 @@ async def test_unqualified_lead_gets_nurture_email(env, tenant, acts) -> None:
 
 
 _ = WorkflowFailureError
+
+
+async def test_handoff_satisfies_the_next_step_for_that_role(env, tenant, acts) -> None:
+    """Regression: the NL-built lead workflow has an explicit scheduler step *and* the sales agent
+    hands off to the scheduler. The scheduler must run once — one booking, one outcome."""
+    from oryn.builder.examples import EXAMPLES
+    from oryn.builder.grammar import compile_offline
+    from oryn.models import Outcome
+
+    definition = compile_offline(EXAMPLES[0]).definition.model_dump(mode="json", by_alias=True)
+    async with worker(env.client, acts):
+        h, rid = await start(env.client, tenant, definition)
+        await _approve(h)
+        res = await h.result()
+    assert res.status == RunStatus.completed and res.outcomes == ["meeting_booked"]
+    async with owner_session() as s:
+        assert (await s.execute(select(func.count()).select_from(SbCalendarEvent))).scalar_one() == 1
+        assert (await s.execute(select(func.count()).select_from(Outcome))).scalar_one() == 1
+        decisions = (
+            (await s.execute(select(Span.name).where(Span.run_id == rid, Span.kind == SpanKind.decision)))
+            .scalars()
+            .all()
+        )
+    assert any("already handled" in d for d in decisions)

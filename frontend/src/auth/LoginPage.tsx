@@ -4,9 +4,9 @@ import { Button } from "@/components/ui";
 import { useAuth } from "./AuthProvider";
 
 const DEMO = [
-  { email: "owner@northwind.test", who: "Northwind HVAC · owner" },
-  { email: "operator@northwind.test", who: "Northwind HVAC · operator (approves actions)" },
-  { email: "owner@brightsmile.test", who: "Brightsmile Dental · owner" },
+  { email: "owner@northwind.test", who: "Owner at Northwind HVAC" },
+  { email: "admin@northwind.test", who: "Admin at Northwind HVAC (can approve refunds)" },
+  { email: "owner@brightsmile.test", who: "Owner at Brightsmile Dental" },
 ];
 
 export function LoginPage() {
@@ -34,11 +34,11 @@ export function LoginPage() {
   return (
     <main className="grid min-h-screen place-items-center bg-rail px-4">
       <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center gap-3 text-paper">
+        <div className="mb-6 flex items-center gap-3 text-white">
           <img src="/favicon.svg" alt="" className="h-9 w-9" />
           <div>
             <p className="font-display text-2xl font-semibold leading-none">Oryn OS</p>
-            <p className="text-sm text-rail-ink">Your AI workforce, on one board.</p>
+            <p className="text-sm text-rail-ink">Your AI workforce, on one board</p>
           </div>
         </div>
         <form onSubmit={submit} className="rounded-lg bg-panel p-6 shadow-xl">

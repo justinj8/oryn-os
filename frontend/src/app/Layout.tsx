@@ -43,7 +43,7 @@ export function Layout() {
       <aside className="bg-rail text-rail-ink md:sticky md:top-0 md:h-screen md:overflow-y-auto">
         <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
           <img src="/favicon.svg" alt="" className="h-7 w-7" />
-          <span className="font-display text-xl font-semibold text-paper md:text-white">Oryn OS</span>
+          <span className="font-display text-xl font-semibold text-white">Oryn OS</span>
         </div>
         <div className="px-3 pb-3">
           <label htmlFor="tenant" className="sr-only">

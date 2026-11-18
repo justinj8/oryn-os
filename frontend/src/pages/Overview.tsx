@@ -131,7 +131,8 @@ export default function Overview() {
                 {agents.data.map((a) => (
                   <tr key={a.agent_id} className="border-t border-line">
                     <td className="py-2">
-                      <span className="font-medium">{a.name}</span> <span className="text-ink-3 capitalize">{a.role}</span>
+                      <span className="font-medium">{a.name}</span>
+                      {a.name.toLowerCase() !== a.role && <span className="ml-1.5 text-ink-3 capitalize">{a.role}</span>}
                     </td>
                     <td className="py-2 text-right">{num(a.runs)}</td>
                     <td className="py-2 text-right">{pct(a.completion_rate)}</td>

@@ -50,7 +50,7 @@ export default function WorkflowBuilder() {
       </p>
       <PageHeader
         title={existing.data?.name ?? "New workflow"}
-        sub={existing.data ? `Version ${existing.data.current_version} · starts on ${existing.data.trigger_event}` : "Describe what should happen in a sentence or two."}
+        sub={existing.data ? `Version ${existing.data.current_version}, starts when ${existing.data.trigger_event} arrives.` : "Describe what should happen in a sentence or two."}
       />
       <div className="grid gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <Section title={workflowId ? "Describe a new version" : "Describe it"}>

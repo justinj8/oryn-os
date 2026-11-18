@@ -77,6 +77,9 @@ class OrynRunWorkflow:
         self.summaries: list[str] = []
         self.cancel_requested = False
         self.inp: RunInput | None = None
+        # Roles that already finished their work because another agent handed off to them. When the
+        # workflow later reaches an explicit step for that role, the handoff has satisfied it.
+        self.handled_by_handoff: set[AgentRole] = set()
 
     # ------------------------------------------------------------------ signals & queries
     @workflow.signal
@@ -215,6 +218,8 @@ class OrynRunWorkflow:
                 continue
 
             if out.status == "finished":
+                if depth > 0:
+                    self.handled_by_handoff.add(role)
                 self.summaries.append(out.summary)
                 if out.outcome:
                     self.outcomes.append(out.outcome)
@@ -255,7 +260,10 @@ class OrynRunWorkflow:
                 await self._quick(
                     OrynActivities.mark_run, MarkRunInput(**self._base, status=RunStatus.running, current_step=step.id)
                 )
-                if isinstance(step, AgentStep):
+                if isinstance(step, AgentStep) and step.role in self.handled_by_handoff:
+                    self.handled_by_handoff.discard(step.role)
+                    await self._span("decision", f"{step.id}: {step.role.value} already handled via handoff — skipped")
+                elif isinstance(step, AgentStep):
                     await self._agent(step.role, step.goal, step.id)
                 elif isinstance(step, ConditionStep):
                     taken = evaluate(step.if_, {"trigger": inp.trigger, "blackboard": self.blackboard})

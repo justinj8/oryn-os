@@ -39,7 +39,7 @@ def _matches(filter_: dict[str, Any], payload: dict[str, Any]) -> bool:
 
 def _title(name: str, payload: dict[str, Any]) -> str:
     who = payload.get("name") or payload.get("company") or payload.get("email") or payload.get("subject")
-    return f"{name} · {who}" if who else name
+    return f"{name} for {who}" if who else name
 
 
 async def ingest_event(
