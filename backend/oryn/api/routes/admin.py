@@ -59,9 +59,7 @@ async def invite_member(body: MemberIn, ctx: TenantContext = Depends(require_rol
             )
             s.add(user)
             await s.flush()
-        exists = (
-            await s.execute(select(Membership).where(Membership.user_id == user.id))
-        ).scalar_one_or_none()
+        exists = (await s.execute(select(Membership).where(Membership.user_id == user.id))).scalar_one_or_none()
         if exists:
             raise HTTPException(status.HTTP_409_CONFLICT, "already a member")
         s.add(Membership(tenant_id=ctx.tenant_id, user_id=user.id, role=body.role))
@@ -128,9 +126,7 @@ async def list_keys(ctx: TenantContext = Depends(require_role(Role.owner))) -> l
 async def create_key(body: ApiKeyIn, ctx: TenantContext = Depends(require_role(Role.owner))) -> dict:
     full, prefix, key_hash = generate_api_key()
     async with tenant_session(ctx.tenant_id) as s:
-        k = ApiKey(
-            tenant_id=ctx.tenant_id, name=body.name, prefix=prefix, key_hash=key_hash, created_by=ctx.user_id
-        )
+        k = ApiKey(tenant_id=ctx.tenant_id, name=body.name, prefix=prefix, key_hash=key_hash, created_by=ctx.user_id)
         s.add(k)
         await s.flush()
         await s.refresh(k)
@@ -161,9 +157,7 @@ class AuditOut(BaseModel):
 
 
 @router.get("/audit", response_model=list[AuditOut])
-async def list_audit(
-    limit: int = 100, ctx: TenantContext = Depends(require_role(Role.admin))
-) -> list[AuditOut]:
+async def list_audit(limit: int = 100, ctx: TenantContext = Depends(require_role(Role.admin))) -> list[AuditOut]:
     async with tenant_session(ctx.tenant_id) as s:
         rows = (
             (await s.execute(select(AuditLog).order_by(AuditLog.created_at.desc()).limit(min(limit, 500))))

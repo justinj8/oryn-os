@@ -57,11 +57,7 @@ async def api_key_context(full_key: str) -> TenantContext:
         raise _unauthorized("invalid api key")
     async with system_session() as s:
         row = (await s.execute(text("select * from resolve_api_key(:p)"), {"p": prefix})).mappings().first()
-    if (
-        not row
-        or row["revoked_at"] is not None
-        or not hmac.compare_digest(row["key_hash"], hash_api_key(full_key))
-    ):
+    if not row or row["revoked_at"] is not None or not hmac.compare_digest(row["key_hash"], hash_api_key(full_key)):
         raise _unauthorized("invalid api key")
     async with tenant_session(row["tenant_id"]) as s:
         await s.execute(update(ApiKey).where(ApiKey.id == row["id"]).values(last_used_at=datetime.now(UTC)))
@@ -83,9 +79,7 @@ async def tenant_ctx(
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid X-Tenant-Id") from e
     async with tenant_session(tenant_id) as s:
-        role = (
-            await s.execute(select(Membership.role).where(Membership.user_id == user.id))
-        ).scalar_one_or_none()
+        role = (await s.execute(select(Membership.role).where(Membership.user_id == user.id))).scalar_one_or_none()
     if role is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "not a member of this tenant")
     return TenantContext(tenant_id=tenant_id, user_id=user.id, role=role, via="user")

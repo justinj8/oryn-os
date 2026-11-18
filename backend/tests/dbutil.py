@@ -30,9 +30,7 @@ def migrate_fresh() -> None:
 async def truncate_all() -> None:
     async with owner_session() as s:
         rows = await s.execute(
-            text(
-                "select tablename from pg_tables where schemaname='public' and tablename <> 'alembic_version'"
-            )
+            text("select tablename from pg_tables where schemaname='public' and tablename <> 'alembic_version'")
         )
         names = [r[0] for r in rows]
         if names:

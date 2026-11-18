@@ -34,9 +34,7 @@ async def test_every_tenant_table_has_rls() -> None:
             assert row == (True, True), t
             pol = (
                 await s.execute(
-                    text(
-                        "select count(*) from pg_policies where tablename=:t and policyname='tenant_isolation'"
-                    ),
+                    text("select count(*) from pg_policies where tablename=:t and policyname='tenant_isolation'"),
                     {"t": t},
                 )
             ).scalar_one()

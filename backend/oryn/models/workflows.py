@@ -103,9 +103,7 @@ class Approval(Base, TenantScoped):
     idempotency_key: Mapped[str] = mapped_column(String(255))
     risk_reasons: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     min_role: Mapped[Role] = mapped_column(str_enum(Role))
-    status: Mapped[ApprovalStatus] = mapped_column(
-        str_enum(ApprovalStatus), default=ApprovalStatus.pending, index=True
-    )
+    status: Mapped[ApprovalStatus] = mapped_column(str_enum(ApprovalStatus), default=ApprovalStatus.pending, index=True)
     requested_by_agent_id: Mapped[uuid.UUID | None]
     requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     decided_by: Mapped[uuid.UUID | None]

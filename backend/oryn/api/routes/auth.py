@@ -38,8 +38,7 @@ async def _memberships(user: User) -> list[MembershipOut]:
     async with system_session() as s:
         rows = (await s.execute(text("select * from user_memberships(:u)"), {"u": user.id})).mappings()
         return [
-            MembershipOut(tenant_id=str(r["tenant_id"]), slug=r["slug"], name=r["name"], role=r["role"])
-            for r in rows
+            MembershipOut(tenant_id=str(r["tenant_id"]), slug=r["slug"], name=r["name"], role=r["role"]) for r in rows
         ]
 
 

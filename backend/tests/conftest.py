@@ -2,9 +2,7 @@ import os
 
 os.environ["ENV"] = "test"
 os.environ.setdefault("DATABASE_URL_APP", "postgresql+asyncpg://oryn_app:oryn_app@localhost:55432/oryn_test")
-os.environ.setdefault(
-    "DATABASE_URL_OWNER", "postgresql+asyncpg://oryn_owner:oryn_owner@localhost:55432/oryn_test"
-)
+os.environ.setdefault("DATABASE_URL_OWNER", "postgresql+asyncpg://oryn_owner:oryn_owner@localhost:55432/oryn_test")
 os.environ.setdefault("REDIS_URL", "redis://localhost:56379/15")
 
 import pytest

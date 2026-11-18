@@ -35,9 +35,7 @@ async def test_tenant_session_sees_only_own_rows() -> None:
 async def test_raw_sql_cannot_cross_tenants() -> None:
     a, b = await _two_tenants()
     async with tenant_session(a) as s:
-        n = (
-            await s.execute(text("select count(*) from memberships where tenant_id = :b"), {"b": b})
-        ).scalar_one()
+        n = (await s.execute(text("select count(*) from memberships where tenant_id = :b"), {"b": b})).scalar_one()
     assert n == 0
 
 

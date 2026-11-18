@@ -67,9 +67,7 @@ def upgrade() -> None:
         sa.Column("allowed_tools", sa.ARRAY(sa.String(length=64)), nullable=False),
         sa.Column(
             "autonomy",
-            sa.Enum(
-                "suggest", "act_with_approval", "autonomous", name="autonomy", native_enum=False, length=32
-            ),
+            sa.Enum("suggest", "act_with_approval", "autonomous", name="autonomy", native_enum=False, length=32),
             nullable=False,
         ),
         sa.Column("max_tokens_per_run", sa.Integer(), nullable=False),
@@ -164,9 +162,7 @@ def upgrade() -> None:
         "memories",
         sa.Column(
             "scope",
-            sa.Enum(
-                "contact", "account", "agent", "tenant", name="memoryscope", native_enum=False, length=32
-            ),
+            sa.Enum("contact", "account", "agent", "tenant", name="memoryscope", native_enum=False, length=32),
             nullable=False,
         ),
         sa.Column("subject_key", sa.String(length=200), nullable=False),
@@ -227,12 +223,8 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_sb_calendar_events")),
     )
-    op.create_index(
-        op.f("ix_sb_calendar_events_starts_at"), "sb_calendar_events", ["starts_at"], unique=False
-    )
-    op.create_index(
-        op.f("ix_sb_calendar_events_tenant_id"), "sb_calendar_events", ["tenant_id"], unique=False
-    )
+    op.create_index(op.f("ix_sb_calendar_events_starts_at"), "sb_calendar_events", ["starts_at"], unique=False)
+    op.create_index(op.f("ix_sb_calendar_events_tenant_id"), "sb_calendar_events", ["tenant_id"], unique=False)
     op.create_table(
         "sb_contacts",
         sa.Column("name", sa.String(length=200), nullable=False),
@@ -394,9 +386,7 @@ def upgrade() -> None:
         sa.UniqueConstraint("workflow_id", "version", name=op.f("uq_workflow_versions_workflow_id")),
     )
     op.create_index(op.f("ix_workflow_versions_tenant_id"), "workflow_versions", ["tenant_id"], unique=False)
-    op.create_index(
-        op.f("ix_workflow_versions_workflow_id"), "workflow_versions", ["workflow_id"], unique=False
-    )
+    op.create_index(op.f("ix_workflow_versions_workflow_id"), "workflow_versions", ["workflow_id"], unique=False)
     op.create_table(
         "runs",
         sa.Column("workflow_id", sa.Uuid(), nullable=True),
@@ -471,9 +461,7 @@ def upgrade() -> None:
         sa.Column("tenant_id", sa.Uuid(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["run_id"], ["runs.id"], name=op.f("fk_agent_threads_run_id_runs"), ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["run_id"], ["runs.id"], name=op.f("fk_agent_threads_run_id_runs"), ondelete="CASCADE"),
         sa.ForeignKeyConstraint(
             ["tenant_id"], ["tenants.id"], name=op.f("fk_agent_threads_tenant_id_tenants"), ondelete="CASCADE"
         ),
@@ -520,9 +508,7 @@ def upgrade() -> None:
         sa.Column("tenant_id", sa.Uuid(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["run_id"], ["runs.id"], name=op.f("fk_approvals_run_id_runs"), ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["run_id"], ["runs.id"], name=op.f("fk_approvals_run_id_runs"), ondelete="CASCADE"),
         sa.ForeignKeyConstraint(
             ["tenant_id"], ["tenants.id"], name=op.f("fk_approvals_tenant_id_tenants"), ondelete="CASCADE"
         ),
@@ -557,9 +543,7 @@ def upgrade() -> None:
         sa.Column("tenant_id", sa.Uuid(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["run_id"], ["runs.id"], name=op.f("fk_outcomes_run_id_runs"), ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["run_id"], ["runs.id"], name=op.f("fk_outcomes_run_id_runs"), ondelete="CASCADE"),
         sa.ForeignKeyConstraint(
             ["tenant_id"], ["tenants.id"], name=op.f("fk_outcomes_tenant_id_tenants"), ondelete="CASCADE"
         ),
@@ -608,9 +592,7 @@ def upgrade() -> None:
         sa.Column("tenant_id", sa.Uuid(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["run_id"], ["runs.id"], name=op.f("fk_spans_run_id_runs"), ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["run_id"], ["runs.id"], name=op.f("fk_spans_run_id_runs"), ondelete="CASCADE"),
         sa.ForeignKeyConstraint(
             ["tenant_id"], ["tenants.id"], name=op.f("fk_spans_tenant_id_tenants"), ondelete="CASCADE"
         ),
