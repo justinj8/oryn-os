@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Barlow Condensed", "Barlow", ui-sans-serif, sans-serif;
+
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-paper: var(--paper);
+  --color-panel: var(--panel);
+  --color-line: var(--line);
+  --color-rail: var(--rail);
+  --color-rail-ink: var(--rail-ink);
+
+  /* Status colors carry meaning everywhere: a run's state is its color. */
+  --color-flight: var(--flight);
+  --color-hold: var(--hold);
+  --color-clear: var(--clear);
+  --color-divert: var(--divert);
+  --color-fail: var(--fail);
+  --color-idle: var(--idle);
+}
+
+:root {
+  --ink: #18212c;
+  --ink-2: #3b4756;
+  --ink-3: #66727f;
+  --paper: #edf1f4;
+  --panel: #ffffff;
+  --line: #d5dce3;
+  --rail: #18212c;
+  --rail-ink: #c9d3dc;
+  --flight: #2f64d6;
+  --hold: #b9770f;
+  --clear: #0e8a84;
+  --divert: #7556c2;
+  --fail: #c23b4a;
+  --idle: #8a96a3;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e6ecf1;
+    --ink-2: #b8c3cd;
+    --ink-3: #8794a1;
+    --paper: #0f161e;
+    --panel: #16202a;
+    --line: #283543;
+    --rail: #0a1016;
+    --rail-ink: #aab6c1;
+    --flight: #6b93ef;
+    --hold: #e2a540;
+    --clear: #35b3ab;
+    --divert: #a28ae0;
+    --fail: #e46b78;
+    --idle: #6b7785;
+    color-scheme: dark;
+  }
+}
+
+html,
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--flight);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

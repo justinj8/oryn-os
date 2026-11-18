@@ -42,7 +42,7 @@ fmt:
 
 gen-api:
 	$(BACKEND) uv run python scripts/export_openapi.py ../frontend/openapi.json
-	cd frontend && pnpm openapi-typescript openapi.json -o src/api/schema.d.ts
+	cd frontend && pnpm gen:api
 
 chaos:
 	./scripts/chaos.sh
