@@ -103,4 +103,4 @@ def _real_messaging(settings: Settings, sandbox: SandboxMessaging) -> Messaging:
         from oryn.connectors.smtp import SmtpMessaging
 
         email = SmtpMessaging(settings.smtp_url, settings.smtp_from, sandbox)
-    return CompositeMessaging(sms, email, sandbox)  # type: ignore[return-value]
+    return CompositeMessaging(sms, email, sandbox)

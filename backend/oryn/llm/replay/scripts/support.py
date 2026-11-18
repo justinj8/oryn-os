@@ -54,7 +54,7 @@ def next_move(st: ReplayState) -> ReplayMove:
     # pricing / billing / support: answer from the knowledge base
     if not st.done("docs.search"):
         return move("docs.search", query=text, k=2)
-    hits = (st.last("docs.search").result or {}).get("hits") or []
+    hits = st.result("docs.search").get("hits") or []
     if not hits:
         return move("control.escalate_to_human", reason="No knowledge-base article matched the question.")
     top = hits[0]
@@ -80,7 +80,7 @@ def _refund(st: ReplayState, text: str) -> ReplayMove:
             sql="select id, amount_usd, refunded_usd from sb_invoices where number = :n",
             params={"n": number},
         )
-    rows = (st.last("db.query").result or {}).get("rows") or []
+    rows = st.result("db.query").get("rows") or []
     if not rows:
         return move(
             "control.finish",

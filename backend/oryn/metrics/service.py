@@ -188,7 +188,7 @@ async def timeseries(s: AsyncSession, range_days: int) -> list[TimeseriesPoint]:
         ).all()
     }
     o_day = func.date(func.timezone("UTC", Outcome.occurred_at))
-    values = dict(
+    values: dict[date, float] = dict(
         (
             await s.execute(
                 select(o_day, func.coalesce(func.sum(Outcome.value_usd), 0))

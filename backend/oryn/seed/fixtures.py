@@ -165,12 +165,12 @@ async def _seed_tenant(s, slug: str, name: str, settings: dict) -> tuple[Tenant,
         s.add(Membership(tenant_id=t.id, user_id=u.id, role=role))
     for kind in ConnectorKind:
         s.add(Connector(tenant_id=t.id, kind=kind, provider="sandbox", name=f"{name} {kind.value}", settings={}))
-    for agent_name, role, tools, channels, prompt in AGENTS[slug]:
+    for agent_name, agent_role, tools, channels, prompt in AGENTS[slug]:
         s.add(
             Agent(
                 tenant_id=t.id,
                 name=agent_name,
-                role=role,
+                role=agent_role,
                 allowed_tools=tools,
                 channels=channels,
                 system_prompt=prompt,

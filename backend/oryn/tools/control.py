@@ -44,11 +44,12 @@ async def _noop(ctx: ToolContext, args: Any) -> dict:
 
 
 def register_control(reg: ToolRegistry) -> None:
-    for name, desc, model in [
+    tools: list[tuple[str, str, type[BaseModel]]] = [
         ("control.handoff", "Hand the task to another specialist agent with a clear goal.", HandoffIn),
         ("control.finish", "Finish your task with a summary (and a customer reply if conversational).", FinishIn),
         ("control.remember", "Save a durable fact about a contact/account for future conversations.", RememberIn),
         ("control.escalate_to_human", "Escalate to a human when you cannot proceed safely.", EscalateIn),
         ("control.update_blackboard", "Share structured facts with other agents on this run.", BlackboardIn),
-    ]:
+    ]
+    for name, desc, model in tools:
         reg.register(ToolSpec(name, desc, model, RiskLevel.low, False, None), _noop)

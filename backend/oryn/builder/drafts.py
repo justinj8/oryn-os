@@ -21,8 +21,9 @@ async def draft_workflow(text: str, provider: LLMProvider | None = None) -> Draf
     if isinstance(provider, ReplayProvider) or not text.strip():
         return compile_offline(text)
     shots = "\n\n".join(
-        f"Description: {ex}\nJSON: {json.dumps(compile_offline(ex).definition.model_dump(mode='json', by_alias=True))}"
+        f"Description: {ex}\nJSON: {json.dumps(d.model_dump(mode='json', by_alias=True))}"
         for ex in EXAMPLES[:3]
+        if (d := compile_offline(ex).definition) is not None
     )
     try:
         res = await provider.complete(

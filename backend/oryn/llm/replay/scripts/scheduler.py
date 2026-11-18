@@ -40,7 +40,7 @@ def _task(st: ReplayState) -> ReplayMove:
     contact_id, email, name = _contact(st)
     if not st.done("calendar.find_slots"):
         return move("calendar.find_slots", duration_min=30, within_days=5, prefer=_prefer(st))
-    slots = (st.last("calendar.find_slots").result or {}).get("slots") or []
+    slots = st.result("calendar.find_slots").get("slots") or []
     if not slots:
         return move("control.escalate_to_human", reason="No availability in the next 5 business days.")
     booked = st.last("calendar.book")
@@ -112,7 +112,7 @@ def _conversation(st: ReplayState) -> ReplayMove:
 
     if not st.done("calendar.find_slots"):
         return move("calendar.find_slots", duration_min=30, within_days=5, prefer=_prefer(st))
-    found = (st.last("calendar.find_slots").result or {}).get("slots") or []
+    found = st.result("calendar.find_slots").get("slots") or []
     if not found:
         return move("control.escalate_to_human", reason="No availability found.")
     options = "; ".join(f"({i + 1}) {_fmt(s['starts_at'])}" for i, s in enumerate(found[:3]))

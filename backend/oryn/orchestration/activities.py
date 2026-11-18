@@ -104,7 +104,7 @@ class OrynActivities:
         return DbSpanSink(tenant_id, run_id, self.bus, OffsetClock(offset), attempt=attempt)
 
     async def _publish(self, type_: str, tenant_id: uuid.UUID, run_id: uuid.UUID | None, data: dict) -> None:
-        await self.bus.publish(LiveEvent(type=type_, tenant_id=tenant_id, run_id=run_id, data=data))  # type: ignore[arg-type]
+        await self.bus.publish(LiveEvent(type=type_, tenant_id=tenant_id, run_id=run_id, data=data))
 
     # ------------------------------------------------------------------ run bookkeeping
     @activity.defn(name="mark_run")
@@ -234,6 +234,7 @@ class OrynActivities:
             inp.run_id,
             {"approval_id": str(inp.approval_id), "status": inp.status.value},
         )
+        return inp.status.value
 
     # ------------------------------------------------------------------ side effects
     @activity.defn(name="execute_action")

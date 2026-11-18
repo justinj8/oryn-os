@@ -97,7 +97,7 @@ async def send_message(
             tenant_id=tenant_id,
             conversation_id=conv.id,
             run_id=run.id,
-            channel=channel,  # type: ignore[arg-type]
+            channel=channel,
             agent_role=role,
             contact=contact or {},
             address=address,

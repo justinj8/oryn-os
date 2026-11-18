@@ -235,12 +235,13 @@ def compile_offline(text: str) -> DraftResult:
     for i, sentence in enumerate(_sentences(text)):
         body = _clean(sentence)
         if i == 0 and st.trigger is None:
-            if m := R_TRIGGER.match(body):
+            m = R_TRIGGER.match(body)
+            if m:
                 st.trigger = NOUN_EVENTS[m["noun"].lower()]
             elif m := R_SCHEDULE.match(body):
                 p = m["period"].lower()
                 st.trigger = "schedule.daily" if p in ("day", "morning", "weekday") else "schedule.weekly"
-            if st.trigger:
+            if st.trigger and m:
                 st.clauses.append(ClauseMatch(text=body[: len(body) - len(m["rest"])].strip(" ,"), rule="trigger"))
                 body = _clean(m["rest"])
                 if not body:

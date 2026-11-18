@@ -215,3 +215,27 @@ async def test_retry_closes_spans_left_open_by_a_crashed_attempt(acts, tenant, r
     assert rows[("Scheduler · book", 1)] == "interrupted"
     assert rows[("calendar.book", 1)] == "interrupted"
     assert rows[("Sales · other-step", 1)] == "running"  # another step's spans are left alone
+
+
+async def test_update_approval_status_returns_final_status(acts, tenant, run_row) -> None:
+    from oryn.models import ApprovalStatus
+    from oryn.orchestration.models import UpdateApprovalInput
+
+    inp = RequestApprovalInput(
+        tenant_id=tenant.id,
+        run_id=run_row,
+        step_id="s",
+        tool=None,
+        idempotency_key="k-final",
+        description="Gate",
+        min_role=Role.operator,
+        expires_in_s=60,
+    )
+    aid = await ENV.run(acts.request_approval, inp)
+    upd = UpdateApprovalInput(
+        tenant_id=tenant.id, run_id=run_row, approval_id=aid, status=ApprovalStatus.rejected, comment="timed out"
+    )
+    assert await ENV.run(acts.update_approval_status, upd) == "rejected"
+    # Already decided: the earlier decision is reported and nothing changes.
+    upd2 = upd.model_copy(update={"status": ApprovalStatus.approved})
+    assert await ENV.run(acts.update_approval_status, upd2) == "rejected"

@@ -15,7 +15,7 @@ def next_move(st: ReplayState) -> ReplayMove:
     if not st.done("crm.find_contact"):
         return move("crm.find_contact", email=email, phone=phone)
 
-    contact = (st.last("crm.find_contact").result or {}).get("contact")
+    contact = st.result("crm.find_contact").get("contact")
     if not contact:
         up = st.last("crm.upsert_contact")
         if not up:

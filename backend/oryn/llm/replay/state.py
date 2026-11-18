@@ -69,6 +69,11 @@ class ReplayState:
                 return c
         return None
 
+    def result(self, tool: str, turn_only: bool = True) -> dict[str, Any]:
+        """The latest result of ``tool`` (empty if it hasn't run or returned nothing)."""
+        c = self.last(tool, turn_only)
+        return (c.result or {}) if c else {}
+
     def done(self, tool: str, turn_only: bool = True) -> bool:
         return self.last(tool, turn_only) is not None
 

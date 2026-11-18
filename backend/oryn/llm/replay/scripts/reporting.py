@@ -16,7 +16,7 @@ def next_move(st: ReplayState) -> ReplayMove:
         return move(f.name, **f.call.arguments)
     if not st.done("db.query"):
         return move("db.query", sql=KPI_SQL.strip(), params={})
-    res = st.last("db.query").result or {}
+    res = st.result("db.query")
     row = dict(zip(res.get("columns", []), (res.get("rows") or [[]])[0], strict=False))
     lines = [
         f"- {k.replace('_', ' ')}: {v:,.0f}" if isinstance(v, int | float) else f"- {k}: {v}" for k, v in row.items()

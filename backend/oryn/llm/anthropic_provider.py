@@ -66,11 +66,11 @@ class AnthropicProvider:
                     ]
                 out.append({"role": "assistant", "content": content})
             else:  # tool results: consecutive ones share one user turn
-                block = {"type": "tool_result", "tool_use_id": m.tool_call_id, "content": m.content}
+                result: dict[str, Any] = {"type": "tool_result", "tool_use_id": m.tool_call_id, "content": m.content}
                 if out and out[-1]["role"] == "user" and isinstance(out[-1]["content"], list):
-                    out[-1]["content"].append(block)
+                    out[-1]["content"].append(result)
                 else:
-                    out.append({"role": "user", "content": [block]})
+                    out.append({"role": "user", "content": [result]})
         return out
 
     async def complete(

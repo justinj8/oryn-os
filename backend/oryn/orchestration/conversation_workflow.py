@@ -8,7 +8,7 @@ talking, pending approvals, transcript — stays durable in Temporal. Duplicate 
 
 import asyncio
 import uuid
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from pydantic import BaseModel
@@ -81,7 +81,7 @@ class ConversationWorkflow:
         self.replies: dict[str, AgentReply] = {}
         self.turns = 0
         self.lock = asyncio.Lock()
-        self.last_activity = None
+        self.last_activity: datetime = datetime.min.replace(tzinfo=UTC)
         self.pending_approval_id = None
         self.decisions: dict[Any, ApprovalDecisionSignal] = {}
         self.background: list[asyncio.Task] = []

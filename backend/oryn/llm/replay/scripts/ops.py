@@ -8,7 +8,7 @@ def next_move(st: ReplayState) -> ReplayMove:
         return move(f.name, **f.call.arguments)
     if not st.done("billing.list_overdue"):
         return move("billing.list_overdue")
-    invoices = ((st.last("billing.list_overdue").result or {}).get("invoices") or [])[:MAX_REMINDERS]
+    invoices = (st.result("billing.list_overdue").get("invoices") or [])[:MAX_REMINDERS]
     looked = [c for c in st.turn_calls if c.name == "crm.get_contact"]
     sent = [c for c in st.turn_calls if c.name == "messaging.send_sms"]
     if len(looked) < len(invoices):

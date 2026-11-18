@@ -136,4 +136,4 @@ async def close_interrupted(tenant_id: uuid.UUID, run_id: uuid.UUID, step_key: s
             )
             .values(status="interrupted", ended_at=ended_at, output={"interrupted": "worker stopped mid-step"})
         )
-        return res.rowcount or 0
+        return getattr(res, "rowcount", 0) or 0

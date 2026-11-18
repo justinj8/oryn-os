@@ -136,7 +136,8 @@ async def set_flag(tenant_id: uuid.UUID, enabled: bool, rate_per_min: int) -> di
 async def traffic_loop(client: Client, tick_s: float = 5.0) -> None:
     from oryn.services.ingest import ingest_event
 
-    gen, credit = TrafficGenerator(), {}
+    gen = TrafficGenerator()
+    credit: dict[uuid.UUID, float] = {}
     while True:
         try:
             async with system_session() as s:

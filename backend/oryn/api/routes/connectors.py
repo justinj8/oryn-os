@@ -86,7 +86,7 @@ async def patch_connector(
         return _out(c)
 
 
-SANDBOX = {
+SANDBOX: dict[str, tuple[Any, list[str]]] = {
     "contacts": (SbContact, ["name", "email", "phone", "company", "status", "source", "attributes"]),
     "deals": (SbDeal, ["contact_id", "title", "amount_usd", "stage", "discount_pct"]),
     "calendar": (SbCalendarEvent, ["title", "contact_id", "starts_at", "ends_at", "status"]),
