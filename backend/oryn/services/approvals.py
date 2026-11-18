@@ -22,8 +22,14 @@ class DecisionError(Exception):
 
 
 async def decide(
-    client: Client, ctx: TenantContext, approval_id: uuid.UUID, approved: bool, comment: str | None
+    client: Client,
+    ctx: TenantContext,
+    approval_id: uuid.UUID,
+    approved: bool,
+    comment: str | None,
+    decided_at: datetime | None = None,
 ) -> Approval:
+    """``decided_at`` lets the seed script record decisions at their simulated time."""
     async with tenant_session(ctx.tenant_id) as s:
         a = await s.get(Approval, approval_id)
         if a is None:
@@ -39,7 +45,7 @@ async def decide(
             await s.execute(
                 update(Approval)
                 .where(Approval.id == approval_id, Approval.status == ApprovalStatus.pending)
-                .values(status=new, decided_by=ctx.user_id, decided_at=datetime.now(UTC), comment=comment)
+                .values(status=new, decided_by=ctx.user_id, decided_at=decided_at or datetime.now(UTC), comment=comment)
                 .returning(Approval.id)
             )
         ).scalar_one_or_none()
