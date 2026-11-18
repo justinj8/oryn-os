@@ -27,7 +27,7 @@ class Settings(BaseSettings):
 
     llm_provider: Literal["replay", "anthropic"] = "replay"
     anthropic_api_key: SecretStr | None = None
-    default_model: str = "claude-sonnet-5-5"
+    default_model: str = "claude-opus-5-5"
 
     twilio_account_sid: str | None = None
     twilio_auth_token: SecretStr | None = None

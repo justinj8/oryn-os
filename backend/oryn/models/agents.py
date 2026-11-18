@@ -23,7 +23,7 @@ class Agent(Base, TenantScoped):
     name: Mapped[str] = mapped_column(String(200))
     role: Mapped[AgentRole] = mapped_column(str_enum(AgentRole), index=True)
     channels: Mapped[list[str]] = mapped_column(ARRAY(String(16)), default=list)
-    model: Mapped[str] = mapped_column(String(64), default="claude-sonnet-5-5")
+    model: Mapped[str] = mapped_column(String(64), default="claude-opus-5-5")
     system_prompt: Mapped[str] = mapped_column(Text, default="")
     allowed_tools: Mapped[list[str]] = mapped_column(ARRAY(String(64)), default=list)
     autonomy: Mapped[Autonomy] = mapped_column(str_enum(Autonomy), default=Autonomy.act_with_approval)
