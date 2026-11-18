@@ -75,11 +75,16 @@ export function TraceWaterfall({ spans, onSelect, selectedId }: { spans: SpanLik
                   <k.icon size={14} className={cx("shrink-0", s.status === "error" ? "text-fail" : "text-ink-3")} aria-label={k.label} />
                   <span className={cx("truncate", depth === 0 && "font-medium")}>{s.name}</span>
                   {s.attempt > 1 && <span className="shrink-0 text-xs text-fail">attempt {s.attempt}</span>}
+                  {s.status === "interrupted" && <span className="shrink-0 text-xs text-ink-3">interrupted</span>}
                 </span>
                 <span className="relative h-3.5 rounded-sm bg-line/40">
                   <span
                     data-testid={`bar-${s.id}`}
-                    className={cx("absolute top-0 h-full rounded-sm", s.status === "error" ? "bg-fail" : k.bar, s.status === "running" && "animate-pulse")}
+                    className={cx(
+                      "absolute top-0 h-full rounded-sm",
+                      s.status === "error" ? "bg-fail" : s.status === "interrupted" ? "bg-idle opacity-60" : k.bar,
+                      s.status === "running" && "animate-pulse",
+                    )}
                     style={{ left: `${+left.toFixed(4)}%`, width: `${+width.toFixed(4)}%` }}
                   />
                 </span>

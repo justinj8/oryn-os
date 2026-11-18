@@ -158,3 +158,60 @@ def test_every_activity_is_registered(acts) -> None:
         if hasattr(fn, "__temporal_activity_definition")
     }
     assert defined and {f.__name__ for f in acts.all()} == defined
+
+
+async def test_retry_closes_spans_left_open_by_a_crashed_attempt(acts, tenant, run_row) -> None:
+    """A worker crash leaves the attempt's spans 'running'. The next attempt marks them interrupted."""
+    import dataclasses
+
+    from oryn.agents.state import AgentStepInput
+    from oryn.models import AgentRole
+
+    async with owner_session() as s:
+        agent_span = Span(
+            tenant_id=tenant.id,
+            run_id=run_row,
+            kind=SpanKind.agent,
+            name="Scheduler · book",
+            status="running",
+            attempt=1,
+            started_at=datetime.now(UTC),
+        )
+        s.add(agent_span)
+        await s.flush()
+        s.add(
+            Span(
+                tenant_id=tenant.id,
+                run_id=run_row,
+                parent_span_id=agent_span.id,
+                kind=SpanKind.tool_call,
+                name="calendar.book",
+                status="running",
+                attempt=1,
+                started_at=datetime.now(UTC),
+            )
+        )
+        s.add(
+            Span(
+                tenant_id=tenant.id,
+                run_id=run_row,
+                kind=SpanKind.agent,
+                name="Sales · other-step",
+                status="running",
+                attempt=1,
+                started_at=datetime.now(UTC),
+            )
+        )
+    env = ActivityEnvironment()
+    env.info = dataclasses.replace(env.info, attempt=2)
+    await env.run(
+        acts.run_agent_step,
+        AgentStepInput(
+            tenant_id=tenant.id, run_id=run_row, step_key="book", agent_role=AgentRole.scheduler, goal="Book a consult"
+        ),
+    )
+    async with owner_session() as s:
+        rows = {(sp.name, sp.attempt): sp.status for sp in (await s.execute(select(Span))).scalars()}
+    assert rows[("Scheduler · book", 1)] == "interrupted"
+    assert rows[("calendar.book", 1)] == "interrupted"
+    assert rows[("Sales · other-step", 1)] == "running"  # another step's spans are left alone

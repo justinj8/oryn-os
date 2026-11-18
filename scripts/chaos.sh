@@ -17,8 +17,9 @@ CAL=$(api "$A_TOK" "$BASE/api/connectors" | json "[c['id'] for c in d if c['kind
 api "$A_TOK" -X PATCH "$BASE/api/connectors/$CAL" -d '{"settings":{"failure_rate":0,"latency_ms":4000,"fail_attempts":0}}' >/dev/null
 trap 'api "$A_TOK" -X PATCH "$BASE/api/connectors/$CAL" -d "{\"settings\":{\"failure_rate\":0,\"latency_ms\":0,\"fail_attempts\":0}}" >/dev/null' EXIT
 
-echo "1. A lead asks for a 15% discount"
-RUN=$(api "$O_TOK" -X POST "$BASE/api/simulate/events" -d "{\"type\":\"lead.created\",\"payload\":{\"name\":\"Chaos Test\",\"email\":\"chaos.$RANDOM@example.com\",\"phone\":\"+15550909\",\"need\":\"heat pump install\",\"budget_usd\":9000,\"requested_discount_pct\":15}}" | json "d['run_ids'][0]")
+LEAD="Chaos Test $RANDOM$RANDOM"
+echo "1. $LEAD asks for a 15% discount"
+RUN=$(api "$O_TOK" -X POST "$BASE/api/simulate/events" -d "{\"type\":\"lead.created\",\"payload\":{\"name\":\"$LEAD\",\"email\":\"chaos.$RANDOM@example.com\",\"phone\":\"+15550909\",\"need\":\"heat pump install\",\"budget_usd\":9000,\"requested_discount_pct\":15}}" | json "d['run_ids'][0]")
 echo "   run $RUN"
 status() { api "$A_TOK" "$BASE/api/runs/$RUN" | json "$1"; }
 for _ in $(seq 1 60); do [ "$(status "d['status']")" = waiting_approval ] && break; sleep 1; done
@@ -31,15 +32,15 @@ for _ in $(seq 1 60); do
   sleep 0.5
 done
 echo "3. Scheduler is mid-booking — killing the worker 💥"
-$COMPOSE kill worker >/dev/null
+$COMPOSE kill worker >/dev/null 2>&1
 sleep 5
 echo "4. Starting a fresh worker"
-$COMPOSE start worker >/dev/null
+$COMPOSE start worker >/dev/null 2>&1
 
 for _ in $(seq 1 120); do
   S=$(status "d['status']")
   if [ "$S" = completed ]; then
-    BOOKINGS=$(api "$A_TOK" "$BASE/api/sandbox/calendar?limit=200" | json "sum(1 for e in d['items'] if 'Chaos Test' in e['title'])")
+    BOOKINGS=$(api "$A_TOK" "$BASE/api/sandbox/calendar?limit=200" | json "sum(1 for e in d['items'] if e['title'].endswith('$LEAD'))")
     echo "5. Run completed: $(status "d['outcome_summary']")"
     echo "   Bookings for this lead: $BOOKINGS (exactly one — retries are idempotent)"
     echo "Recovered after worker crash ✔  →  $BASE/runs/$RUN"

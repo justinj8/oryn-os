@@ -103,3 +103,37 @@ class DbSpanSink:
         sid = await self.start(kind, name, data, parent_id)
         await self.end(sid, data, status=status)
         return sid
+
+
+async def close_interrupted(tenant_id: uuid.UUID, run_id: uuid.UUID, step_key: str, attempt: int, ended_at) -> int:
+    """Mark spans an earlier, crashed attempt of this step left 'running' as interrupted."""
+    from sqlalchemy import or_, select, update
+
+    async with tenant_session(tenant_id, pool="spans") as s:
+        roots = (
+            (
+                await s.execute(
+                    select(Span.id).where(
+                        Span.run_id == run_id,
+                        Span.kind == SpanKind.agent,
+                        Span.name.like(f"% · {step_key}"),
+                        Span.attempt < attempt,
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if not roots:
+            return 0
+        res = await s.execute(
+            update(Span)
+            .where(
+                Span.run_id == run_id,
+                Span.status == "running",
+                Span.attempt < attempt,
+                or_(Span.id.in_(roots), Span.parent_span_id.in_(roots)),
+            )
+            .values(status="interrupted", ended_at=ended_at, output={"interrupted": "worker stopped mid-step"})
+        )
+        return res.rowcount or 0

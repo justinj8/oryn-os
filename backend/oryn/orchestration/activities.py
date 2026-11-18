@@ -41,7 +41,7 @@ from oryn.models import (
 )
 from oryn.observability.bus import EventBus, LiveEvent, get_event_bus
 from oryn.observability.clock import OffsetClock
-from oryn.observability.spans import DbSpanSink
+from oryn.observability.spans import DbSpanSink, close_interrupted
 from oryn.orchestration.models import (
     ChannelMessageInput,
     CompensateInput,
@@ -133,6 +133,8 @@ class OrynActivities:
             activity.heartbeat()
         sink = self._sink(inp.tenant_id, inp.run_id, inp.time_offset_seconds)
         if sink.attempt > 1:
+            # A crashed earlier attempt left its spans 'running'; close them before redoing the step.
+            await close_interrupted(inp.tenant_id, inp.run_id, inp.step_key, sink.attempt, sink.clock.now())
             await sink.event(
                 SpanKind.retry,
                 f"retry {inp.step_key} (attempt {sink.attempt})",
