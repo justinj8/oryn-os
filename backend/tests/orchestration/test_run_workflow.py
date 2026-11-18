@@ -1,8 +1,6 @@
 import pytest
 from sqlalchemy import func, select
 from temporalio.client import WorkflowFailureError
-from temporalio.contrib.pydantic import pydantic_data_converter
-from temporalio.testing import WorkflowEnvironment
 
 from oryn.connectors.errors import NonRetryableConnectorError
 from oryn.core.db import owner_session
@@ -27,11 +25,9 @@ from oryn.orchestration.run_workflow import OrynRunWorkflow
 from tests.orchestration.wf_helpers import GOLDEN, start, wait_state, worker
 
 
-@pytest.fixture(scope="module")
-async def env():
-    e = await WorkflowEnvironment.start_time_skipping(data_converter=pydantic_data_converter)
-    yield e
-    await e.shutdown()
+@pytest.fixture
+def env(temporal_env):
+    return temporal_env
 
 
 async def _approve(h, approved=True, comment=None):

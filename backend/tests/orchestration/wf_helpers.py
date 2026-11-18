@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from temporalio.client import Client, WorkflowHandle
 from temporalio.worker import Worker
 
+from oryn.core.config import get_settings
 from oryn.core.db import owner_session
 from oryn.models import Run
 from oryn.orchestration.activities import OrynActivities
@@ -13,7 +14,7 @@ from oryn.orchestration.models import RunInput, RunState
 from oryn.orchestration.run_workflow import OrynRunWorkflow
 from oryn.workflows.dsl import WorkflowDefinition
 
-TQ = "test-q"
+TQ = get_settings().temporal_task_queue
 LEAD = {
     "name": "Dana Reyes",
     "email": "dana@example.com",
@@ -59,7 +60,7 @@ async def start(
     return h, rid
 
 
-async def wait_state(h: WorkflowHandle, status: str, timeout: float = 30) -> RunState:
+async def wait_state(h: WorkflowHandle, status: str, within: float = 30) -> RunState:
     async def poll() -> RunState:
         while True:
             st = await h.query(OrynRunWorkflow.get_state)
@@ -67,4 +68,4 @@ async def wait_state(h: WorkflowHandle, status: str, timeout: float = 30) -> Run
                 return st
             await asyncio.sleep(0.1)
 
-    return await asyncio.wait_for(poll(), timeout)
+    return await asyncio.wait_for(poll(), within)
