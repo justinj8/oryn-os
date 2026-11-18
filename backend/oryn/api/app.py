@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from oryn import __version__
+from oryn.api.routes import admin, auth
 from oryn.core.config import get_settings
 from oryn.core.logging import configure_logging
 
@@ -17,4 +18,6 @@ def create_app() -> FastAPI:
             "llm_provider": get_settings().effective_llm_provider,
         }
 
+    app.include_router(auth.router)
+    app.include_router(admin.router)
     return app

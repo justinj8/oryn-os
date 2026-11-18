@@ -27,3 +27,13 @@ async def _clean_db() -> None:
 @pytest.fixture
 def sql():
     return text
+
+
+@pytest.fixture
+async def client():
+    from httpx import ASGITransport, AsyncClient
+
+    from oryn.api.app import create_app
+
+    async with AsyncClient(transport=ASGITransport(app=create_app()), base_url="http://t") as c:
+        yield c
