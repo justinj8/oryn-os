@@ -32,7 +32,7 @@ async def test_recall_filters_by_subject_and_ranks() -> None:
         await store.remember(s, t.id, MemoryScope.contact, "contact:dana@x.com", "Budget about $8,000", None)
         await store.remember(s, t.id, MemoryScope.contact, "contact:lee@x.com", "Prefers morning calls", None)
         got = await store.recall(s, [(MemoryScope.contact, "contact:dana@x.com")], "when can we book a morning slot")
-    assert [m.content for m in got][0] == "Prefers morning appointments"
+    assert next(m.content for m in got) == "Prefers morning appointments"
     assert all(m.subject_key == "contact:dana@x.com" for m in got)
 
 

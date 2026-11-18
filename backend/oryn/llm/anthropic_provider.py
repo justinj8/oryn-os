@@ -49,7 +49,12 @@ class AnthropicProvider:
         out: list[dict[str, Any]] = []
         for m in messages:
             if m.role == "user":
-                out.append({"role": "user", "content": m.content})
+                block = {"type": "text", "text": m.content}
+                if out and out[-1]["role"] == "user":  # merge consecutive user turns
+                    prev = out[-1]["content"]
+                    out[-1]["content"] = ([{"type": "text", "text": prev}] if isinstance(prev, str) else prev) + [block]
+                else:
+                    out.append({"role": "user", "content": m.content})
             elif m.role == "assistant":
                 if m.raw is not None:
                     content: list[dict[str, Any]] = m.raw

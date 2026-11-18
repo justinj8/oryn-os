@@ -6,6 +6,7 @@ path identical to what a real embedding provider would use.
 """
 
 import hashlib
+import itertools
 import math
 import re
 from typing import Protocol
@@ -35,7 +36,7 @@ class HashingEmbedder:
     def _features(self, text: str) -> list[tuple[str, float]]:
         words = [_stem(w) for w in re.findall(r"[a-z0-9$]+", text.lower()) if w not in _STOP]
         feats: list[tuple[str, float]] = [(f"w:{w}", 1.0) for w in words]
-        feats += [(f"b:{a}_{b}", 0.5) for a, b in zip(words, words[1:], strict=False)]
+        feats += [(f"b:{a}_{b}", 0.5) for a, b in itertools.pairwise(words)]
         for w in words:
             padded = f"#{w}#"
             feats += [(f"c:{padded[i : i + 3]}", 0.25) for i in range(len(padded) - 2)]
