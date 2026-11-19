@@ -67,3 +67,55 @@ async def test_backfill_small(isolated_temporal_env, acts) -> None:
     async with tenant_session(north.id) as s:
         m = await overview(s, 7)
     assert m.runs_total == len(runs) and m.llm_cost_usd > 0
+
+
+async def test_demo_manager_only_decides_backfill_approvals(temporal_env) -> None:
+    """Regression: the scripted manager approved a live demo user's pending discount mid-backfill."""
+    import random
+    import uuid as _uuid
+
+    from oryn.core.tenancy import Role
+    from oryn.models import Approval, Event
+    from oryn.seed.demo_manager import decide_pending, manager_context
+
+    summary = await seed_base()
+    north = next(t for t in summary.tenants if t.slug == "northwind")
+    ids = {}
+    async with owner_session() as s:
+        for source in ("backfill", "simulator"):
+            ev = Event(
+                id=_uuid.uuid4(),
+                tenant_id=north.id,
+                type="lead.created",
+                source=source,
+                idempotency_key=f"k-{source}",
+                payload={},
+            )
+            s.add(ev)
+            await s.flush()
+            run = Run(
+                id=_uuid.uuid4(),
+                tenant_id=north.id,
+                temporal_workflow_id=f"wf-{source}",
+                trigger_event_id=ev.id,
+                started_at=datetime.now(UTC),
+            )
+            s.add(run)
+            await s.flush()
+            a = Approval(
+                tenant_id=north.id,
+                run_id=run.id,
+                step_id="s",
+                idempotency_key=f"a-{source}",
+                min_role=Role.operator,
+                status="pending",
+                requested_at=datetime.now(UTC),
+            )
+            s.add(a)
+            await s.flush()
+            ids[source] = a.id
+    ctx = await manager_context(north.id, "northwind")
+    await decide_pending(temporal_env.client, ctx, random.Random(1), approve_rate=1.0)
+    async with owner_session() as s:
+        assert (await s.get(Approval, ids["backfill"])).status != "pending"
+        assert (await s.get(Approval, ids["simulator"])).status == "pending"

@@ -11,7 +11,7 @@ from temporalio.client import Client
 from oryn.api.deps import TenantContext
 from oryn.core.db import tenant_session
 from oryn.core.tenancy import Role, role_at_least
-from oryn.models import Approval, ApprovalStatus, Membership, User
+from oryn.models import Approval, ApprovalStatus, Event, Membership, Run, User
 from oryn.services.approvals import DecisionError, decide
 
 
@@ -29,7 +29,19 @@ async def manager_context(tenant_id: uuid.UUID, slug: str) -> TenantContext:
 
 async def decide_pending(client: Client, ctx: TenantContext, rng: random.Random, approve_rate: float = 0.8) -> int:
     async with tenant_session(ctx.tenant_id) as s:
-        pending = (await s.execute(select(Approval).where(Approval.status == ApprovalStatus.pending))).scalars().all()
+        # Only approvals on runs the backfill started: live demo approvals belong to the people using it.
+        pending = (
+            (
+                await s.execute(
+                    select(Approval)
+                    .join(Run, Run.id == Approval.run_id)
+                    .join(Event, Event.id == Run.trigger_event_id)
+                    .where(Approval.status == ApprovalStatus.pending, Event.source == "backfill")
+                )
+            )
+            .scalars()
+            .all()
+        )
     decided = 0
     for a in pending:
         if not role_at_least(ctx.role, a.min_role):

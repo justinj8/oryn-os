@@ -5,10 +5,12 @@ from datetime import UTC, datetime
 
 from sqlalchemy import update
 from temporalio.client import Client
+from temporalio.service import RPCError, RPCStatusCode
 
 from oryn.api.deps import TenantContext
 from oryn.core.audit import record_audit
 from oryn.core.db import tenant_session
+from oryn.core.logging import log
 from oryn.core.tenancy import role_at_least
 from oryn.models import Approval, ApprovalStatus, Run
 from oryn.observability.bus import LiveEvent, get_event_bus
@@ -63,10 +65,19 @@ async def decide(
         await s.refresh(a)
         workflow_id = run.temporal_workflow_id if run else None
     if workflow_id:
-        await client.get_workflow_handle(workflow_id).signal(
-            "decide_approval",
-            ApprovalDecisionSignal(approval_id=approval_id, approved=approved, decided_by=ctx.user_id, comment=comment),
-        )
+        try:
+            await client.get_workflow_handle(workflow_id).signal(
+                "decide_approval",
+                ApprovalDecisionSignal(
+                    approval_id=approval_id, approved=approved, decided_by=ctx.user_id, comment=comment
+                ),
+            )
+        except RPCError as e:
+            # The decision is already recorded; a run that has since finished or been cancelled
+            # simply has nobody waiting for it any more.
+            if e.status != RPCStatusCode.NOT_FOUND:
+                raise
+            log.info("approval.signal_skipped", approval_id=str(approval_id), reason="workflow not running")
     await get_event_bus().publish(
         LiveEvent(
             type="approval.decided",
