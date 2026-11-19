@@ -86,3 +86,17 @@ async def test_first_message_delivered_with_workflow_start(temporal_env, tenant,
     async with worker(temporal_env.client, acts):
         reply = await asyncio.wait_for(pending, 20)
     assert reply.status == "ok"
+
+
+async def test_long_conversation_keeps_answering(temporal_env, tenant, acts) -> None:
+    """Regression (review C2): iteration and budget caps accumulated across a conversation's whole
+    life, so every chat escalated after ~4 turns. Caps apply per turn."""
+    from oryn.models import AgentThread
+
+    lines = ["hello", "What is your refund policy?", "thanks!"] * 6
+    async with worker(temporal_env.client, acts):
+        replies = [await _say(temporal_env, tenant, text, ext="long-chat") for text in lines]
+    assert [r.status for r in replies] == ["ok"] * 18, [r.text for r in replies]
+    async with owner_session() as s:
+        keys = sorted((await s.execute(select(AgentThread.step_key))).scalars().all())
+    assert keys == ["conv-support", "conv-support-1"]  # rolled to a fresh, recapped thread after 15 turns

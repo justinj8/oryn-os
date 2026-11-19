@@ -48,13 +48,13 @@ def build_agent_graph(deps: "AgentDeps", agent: Agent, scope: StepScope):
     allowed = {s.name for s in specs}
 
     async def think(state: GraphState) -> GraphState:
-        if state["iterations"] >= MAX_AGENT_ITERATIONS:
+        if state["iterations"] - scope.base_iterations >= MAX_AGENT_ITERATIONS:
             return {
                 "status": "escalated",
                 "summary": f"Stopped after {MAX_AGENT_ITERATIONS} iterations without finishing.",
             }
-        total = state["usage"].input_tokens + state["usage"].output_tokens
-        if total > scope.max_tokens or state["cost"] > scope.max_cost:
+        total = state["usage"].input_tokens + state["usage"].output_tokens - scope.base_tokens
+        if total > scope.max_tokens or state["cost"] - scope.base_cost > scope.max_cost:
             return {
                 "status": "escalated",
                 "summary": f"Stopped: per-run budget exceeded ({total} tokens, ${state['cost']:.4f}).",

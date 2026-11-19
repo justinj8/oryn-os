@@ -114,6 +114,15 @@ async def run_agent(inp: AgentStepInput, deps: AgentDeps) -> AgentStepOutput:
         max_tokens=agent.max_tokens_per_run,
         max_cost=Decimal(agent.max_cost_usd_per_run),
         agent_span=agent_span,
+        **(
+            {
+                "base_iterations": thread.iterations,
+                "base_tokens": thread.input_tokens + thread.output_tokens,
+                "base_cost": Decimal(thread.cost_usd),
+            }
+            if inp.inbound_message
+            else {}
+        ),
     )
     graph = build_agent_graph(deps, agent, scope)
     prior_usage = Usage(input_tokens=thread.input_tokens, output_tokens=thread.output_tokens)

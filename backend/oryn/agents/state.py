@@ -113,3 +113,8 @@ class StepScope:
     max_tokens: int
     max_cost: Decimal
     agent_span: uuid.UUID
+    # Caps measure from here: 0 for a workflow step (including after an approval resume), the thread's
+    # running totals for a new conversation turn, so caps apply per turn rather than per conversation.
+    base_iterations: int = 0
+    base_tokens: int = 0
+    base_cost: Decimal = Decimal(0)

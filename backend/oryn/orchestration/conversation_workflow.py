@@ -42,6 +42,10 @@ with workflow.unsafe.imports_passed_through():
 
 IDLE_TIMEOUT = timedelta(minutes=30)
 MAX_TURNS_PER_RUN = 50
+# Every SEGMENT_TURNS turns the agent starts a fresh thread seeded with a short recap, so prompts stay
+# bounded without editing past messages (which would invalidate preserved thinking blocks).
+SEGMENT_TURNS = 15
+RECAP_EXCHANGES = 6
 HOLD_MESSAGE = "Thanks — I've asked a manager to approve that, and I'll follow up here as soon as they do."
 
 
@@ -56,6 +60,8 @@ class ConversationInput(BaseModel):
     blackboard: dict[str, Any] = {}
     replies: dict[str, "AgentReply"] = {}
     turns: int = 0
+    segment: int = 0
+    recent: list[list[str]] = []  # last few [customer, agent] exchanges, for the recap
 
 
 class UserMessage(BaseModel):
@@ -83,6 +89,9 @@ class ConversationWorkflow:
         self.blackboard: dict[str, Any] = dict(inp.blackboard)
         self.replies: dict[str, AgentReply] = dict(inp.replies)
         self.turns = inp.turns
+        self.segment = inp.segment
+        self.segment_turns = 0
+        self.recent: list[list[str]] = [list(x) for x in inp.recent]
         self.lock = asyncio.Lock()
         self.last_activity: datetime = datetime.min.replace(tzinfo=UTC)
         self.pending_approval_id = None
@@ -118,6 +127,10 @@ class ConversationWorkflow:
             reply = await self._turn(msg)
             self.replies[msg.message_id] = reply
             self.turns += 1
+            self.recent = [*self.recent, [msg.text, reply.text]][-RECAP_EXCHANGES:]
+            self.segment_turns += 1
+            if self.segment_turns >= SEGMENT_TURNS:
+                self.segment, self.segment_turns = self.segment + 1, 0
             self.last_activity = workflow.now()
             return reply
 
@@ -155,6 +168,17 @@ class ConversationWorkflow:
             ),
         )
 
+    def _thread_key(self) -> str:
+        return f"conv-{self.role.value}" if self.segment == 0 else f"conv-{self.role.value}-{self.segment}"
+
+    def _goal(self) -> str:
+        assert self.inp
+        goal = f"Help the customer over {self.inp.channel}. Keep replies short."
+        if self.segment and self.recent:
+            recap = "\n".join(f"Customer: {c}\nYou: {a}" for c, a in self.recent)
+            goal += f"\n\nThe conversation so far (most recent exchanges):\n{recap}"
+        return goal
+
     def _subjects(self) -> list[tuple[MemoryScope, str]]:
         assert self.inp
         keys = []
@@ -170,9 +194,9 @@ class ConversationWorkflow:
             AgentStepInput(
                 tenant_id=self.inp.tenant_id,
                 run_id=self.inp.run_id,
-                step_key=f"conv-{self.role.value}",
+                step_key=self._thread_key(),
                 agent_role=self.role,
-                goal=f"Help the customer over {self.inp.channel}. Keep replies short.",
+                goal=self._goal(),
                 blackboard=self.blackboard,
                 trigger={**self.inp.contact, "channel": self.inp.channel},
                 subject_keys=self._subjects(),
@@ -233,7 +257,7 @@ class ConversationWorkflow:
         )
         result = await run_approval_loop(
             ctx,
-            step_id=f"conv-{self.role.value}",
+            step_id=self._thread_key(),
             tool=p.tool,
             args=p.args,
             idempotency_key=p.idempotency_key,
@@ -294,7 +318,14 @@ class ConversationWorkflow:
                 recent = dict(list(self.replies.items())[-20:])
                 workflow.continue_as_new(
                     inp.model_copy(
-                        update={"agent_role": self.role, "blackboard": self.blackboard, "replies": recent, "turns": 0}
+                        update={
+                            "agent_role": self.role,
+                            "blackboard": self.blackboard,
+                            "replies": recent,
+                            "turns": 0,
+                            "segment": self.segment + 1,
+                            "recent": self.recent,
+                        }
                     )
                 )
         await workflow.wait_condition(workflow.all_handlers_finished)
