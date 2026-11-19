@@ -76,48 +76,77 @@ async def ingest_event(
         ).scalar_one_or_none()
         if event_id is None:  # duplicate delivery: report what the first one started
             existing = (await s.execute(select(Event).where(Event.idempotency_key == idempotency_key))).scalar_one()
-            run_ids = (await s.execute(select(Run.id).where(Run.trigger_event_id == existing.id))).scalars().all()
-            return IngestResult(existing.id, False, list(run_ids))
+            runs = (await s.execute(select(Run).where(Run.trigger_event_id == existing.id))).scalars().all()
+            # A provider retry is also our chance to recover runs whose workflow never started.
+            # REJECT_DUPLICATE on the deterministic workflow id keeps this safe to repeat.
+            for run in runs:
+                if run.status == RunStatus.failed and (run.error or "").startswith("could not start"):
+                    version = await s.get(WorkflowVersion, run.workflow_version_id) if run.workflow_version_id else None
+                    if version is None:
+                        continue
+                    run.status, run.error, run.ended_at = RunStatus.running, None, None
+                    to_start.append(
+                        (
+                            run,
+                            RunInput(
+                                tenant_id=tenant_id,
+                                run_id=run.id,
+                                workflow_version_id=version.id,
+                                definition=WorkflowDefinition.model_validate(version.definition),
+                                trigger=existing.payload,
+                                trigger_event_id=existing.id,
+                                started_by_user_id=run.started_by_user_id,
+                                time_offset_seconds=time_offset_seconds,
+                                time_scale=time_scale,
+                            ),
+                        )
+                    )
+            if not to_start:
+                return IngestResult(existing.id, False, [r.id for r in runs])
+            event_id, created, all_run_ids = existing.id, False, [r.id for r in runs]
+        else:
+            created, all_run_ids = True, []
 
-        rows = await s.execute(
-            select(Workflow, WorkflowVersion)
-            .join(WorkflowVersion, WorkflowVersion.id == Workflow.current_version_id)
-            .where(Workflow.trigger_event == type_, Workflow.enabled.is_(True))
-        )
-        for wf, ver in rows:
-            definition = WorkflowDefinition.model_validate(ver.definition)
-            if not _matches(definition.trigger.filter, payload):
-                continue
-            run = Run(
-                id=uuid.uuid4(),
-                tenant_id=tenant_id,
-                workflow_id=wf.id,
-                workflow_version_id=ver.id,
-                kind="workflow",
-                title=_title(wf.name, payload)[:300],
-                temporal_workflow_id=f"{tenant_id}:{wf.id}:{event_id}",
-                status=RunStatus.running,
-                trigger_event_id=event_id,
-                started_by_user_id=started_by_user_id,
-                started_at=now,
+        if created:
+            rows = await s.execute(
+                select(Workflow, WorkflowVersion)
+                .join(WorkflowVersion, WorkflowVersion.id == Workflow.current_version_id)
+                .where(Workflow.trigger_event == type_, Workflow.enabled.is_(True))
             )
-            s.add(run)
-            to_start.append(
-                (
-                    run,
-                    RunInput(
-                        tenant_id=tenant_id,
-                        run_id=run.id,
-                        workflow_version_id=ver.id,
-                        definition=definition,
-                        trigger=payload,
-                        trigger_event_id=event_id,
-                        started_by_user_id=started_by_user_id,
-                        time_offset_seconds=time_offset_seconds,
-                        time_scale=time_scale,
-                    ),
+            for wf, ver in rows:
+                definition = WorkflowDefinition.model_validate(ver.definition)
+                if not _matches(definition.trigger.filter, payload):
+                    continue
+                run = Run(
+                    id=uuid.uuid4(),
+                    tenant_id=tenant_id,
+                    workflow_id=wf.id,
+                    workflow_version_id=ver.id,
+                    kind="workflow",
+                    title=_title(wf.name, payload)[:300],
+                    temporal_workflow_id=f"{tenant_id}:{wf.id}:{event_id}",
+                    status=RunStatus.running,
+                    trigger_event_id=event_id,
+                    started_by_user_id=started_by_user_id,
+                    started_at=now,
                 )
-            )
+                s.add(run)
+                to_start.append(
+                    (
+                        run,
+                        RunInput(
+                            tenant_id=tenant_id,
+                            run_id=run.id,
+                            workflow_version_id=ver.id,
+                            definition=definition,
+                            trigger=payload,
+                            trigger_event_id=event_id,
+                            started_by_user_id=started_by_user_id,
+                            time_offset_seconds=time_offset_seconds,
+                            time_scale=time_scale,
+                        ),
+                    )
+                )
 
     # Start workflows only after the rows are committed, so activities can see them.
     from oryn.orchestration.run_workflow import OrynRunWorkflow
@@ -143,4 +172,4 @@ async def ingest_event(
                     r.status, r.error, r.ended_at = RunStatus.failed, f"could not start: {e}", datetime.now(UTC)
             continue
         await bus.publish(LiveEvent(type="run.started", tenant_id=tenant_id, run_id=run.id, data={"title": run.title}))
-    return IngestResult(event_id, True, [r.id for r, _ in to_start])
+    return IngestResult(event_id, created, all_run_ids or [r.id for r, _ in to_start])

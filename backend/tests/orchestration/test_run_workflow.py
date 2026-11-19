@@ -309,3 +309,28 @@ async def test_parallel_branches_can_each_wait_for_approval(env, tenant, acts) -
     assert res.status == RunStatus.completed
     async with owner_session() as s:
         assert sorted((await s.execute(select(SbDeal.discount_pct))).scalars().all()) == [15, 15]
+
+
+async def test_handoff_only_satisfies_the_immediately_following_step(isolated_temporal_env, tenant, acts) -> None:
+    """Review finding I10: a handoff to the scheduler also skipped a scheduler step much later
+    (e.g. a reminder after a wait)."""
+    env = isolated_temporal_env
+    definition = {
+        "name": "x",
+        "trigger": {"event": "lead.created"},
+        "steps": [
+            {"id": "sales", "type": "agent", "role": "sales", "goal": "Qualify"},
+            {"id": "pause", "type": "wait", "seconds": 60},
+            {"id": "remind", "type": "agent", "role": "scheduler", "goal": "Book a follow-up visit"},
+        ],
+    }
+    async with worker(env.client, acts):
+        h, rid = await start(env.client, tenant, definition)
+        await _approve(h)
+        res = await h.result()
+    assert res.status == RunStatus.completed
+    async with owner_session() as s:
+        names = (
+            (await s.execute(select(Span.name).where(Span.run_id == rid, Span.kind == SpanKind.agent))).scalars().all()
+        )
+    assert sorted({n for n in names if n.startswith("Scheduler")}) == ["Scheduler · remind", "Scheduler · sales.h1"]

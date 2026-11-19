@@ -48,6 +48,7 @@ from oryn.orchestration.models import (
     CompensateInput,
     ExecuteActionInput,
     FinalizeInput,
+    FlagForHumanInput,
     MarkRunInput,
     NotifyInput,
     OutcomeInput,
@@ -337,6 +338,24 @@ class OrynActivities:
             inp.run_id,
             {"conversation_id": str(inp.conversation_id), "direction": inp.direction},
         )
+
+    @activity.defn(name="flag_for_human")
+    async def flag_for_human(self, inp: FlagForHumanInput) -> None:
+        """A conversation the agent couldn't handle: make it visible to the team."""
+        async with tenant_session(inp.tenant_id) as s:
+            run = await s.get(Run, inp.run_id)
+            if run:
+                run.status, run.outcome_summary = RunStatus.escalated, inp.reason
+            conv = await s.get(Conversation, inp.conversation_id)
+            if conv:
+                conv.status = "needs_human"
+        await self._sink(inp.tenant_id, inp.run_id, inp.time_offset_seconds).event(
+            SpanKind.decision,
+            f"conversation needs a person: {inp.reason}"[:200],
+            {"reason": inp.reason},
+            status="error",
+        )
+        await self._publish("run.updated", inp.tenant_id, inp.run_id, {"status": "escalated", "reason": inp.reason})
 
     @activity.defn(name="record_outcome")
     async def record_outcome(self, inp: OutcomeInput) -> None:

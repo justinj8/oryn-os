@@ -32,6 +32,8 @@ async def twilio_form(request: Request) -> dict[str, str]:
     settings = get_settings()
     if settings.twilio_auth_token:
         url = f"{settings.public_base_url.rstrip('/')}{request.url.path}"
+        if request.url.query:  # Twilio signs the full URL, query string included
+            url += f"?{request.url.query}"
         sig = request.headers.get("X-Twilio-Signature", "")
         if not RequestValidator(settings.twilio_auth_token.get_secret_value()).validate(url, form, sig):
             raise HTTPException(status.HTTP_403_FORBIDDEN, "invalid Twilio signature")
@@ -68,7 +70,10 @@ async def twilio_voice(
     client: Client = Depends(temporal_client),
 ) -> Response:
     tenant = await tenant_by_slug(tenant_slug)
-    action = f"{get_settings().public_base_url.rstrip('/')}{request.url.path}"
+    # Each turn's Gather posts back to ?turn=N, so the same words said twice in one call are two turns.
+    turn = int(request.query_params.get("turn", "0") or 0)
+    base = f"{get_settings().public_base_url.rstrip('/')}{request.url.path}"
+    action = f"{base}?turn={turn + 1}"
     call_sid, phone, speech = form.get("CallSid", ""), form.get("From", ""), form.get("SpeechResult", "").strip()
     if not speech:
         return _xml(twiml.gather(GREETING, action))
@@ -77,7 +82,7 @@ async def twilio_voice(
         tenant.id,
         "voice",
         call_sid,
-        UserMessage(text=speech, message_id=_digest(call_sid, speech)),
+        UserMessage(text=speech, message_id=f"{call_sid}:turn-{turn}"),
         contact={"phone": phone},
         address=phone,
     )

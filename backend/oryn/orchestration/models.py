@@ -114,6 +114,11 @@ class FinalizeInput(_TenantRun):
     blackboard: dict[str, Any] = {}
 
 
+class FlagForHumanInput(_TenantRun):
+    conversation_id: uuid.UUID
+    reason: str
+
+
 class SpanEventInput(_TenantRun):
     kind: str
     name: str

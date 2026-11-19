@@ -25,6 +25,7 @@ with workflow.unsafe.imports_passed_through():
         ChannelMessageInput,
         ExecuteActionInput,
         FinalizeInput,
+        FlagForHumanInput,
         MarkRunInput,
         OutcomeInput,
     )
@@ -236,6 +237,13 @@ class ConversationWorkflow:
             self.background.append(task)
             await workflow.wait_condition(lambda: "id" in requested or task.done())
             return AgentReply(text=HOLD_MESSAGE, status="pending_approval", approval_id=requested.get("id"))
+        # Escalated or failed: hand the conversation to a person, visibly (run status, conversation
+        # status, a decision span and a live event), not just a promise to the customer.
+        assert self.inp
+        await self._quick(
+            OrynActivities.flag_for_human,
+            FlagForHumanInput(**self._base, conversation_id=self.inp.conversation_id, reason=out.summary),
+        )
         if out.status == "escalated":
             return AgentReply(
                 text="Let me connect you with someone from our team — they'll reply here shortly.", status="escalated"

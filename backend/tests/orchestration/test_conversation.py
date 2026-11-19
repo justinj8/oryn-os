@@ -100,3 +100,23 @@ async def test_long_conversation_keeps_answering(temporal_env, tenant, acts) -> 
     async with owner_session() as s:
         keys = sorted((await s.execute(select(AgentThread.step_key))).scalars().all())
     assert keys == ["conv-support", "conv-support-1"]  # rolled to a fresh, recapped thread after 15 turns
+
+
+async def test_escalation_marks_the_run_for_a_human(temporal_env, tenant, acts) -> None:
+    """Review finding I7: the customer was told a person would reply, but nothing marked it."""
+    from oryn.models import Conversation, Run, Span, SpanKind
+
+    async with worker(temporal_env.client, acts):
+        await _say(temporal_env, tenant, "blorp zzzt", ext="lost")
+        r = await _say(temporal_env, tenant, "qwfp arst", ext="lost")
+    assert r.status == "escalated"
+    async with owner_session() as s:
+        conv = (await s.execute(select(Conversation))).scalar_one()
+        run = await s.get(Run, conv.run_id)
+        names = (
+            (await s.execute(select(Span.name).where(Span.run_id == run.id, Span.kind == SpanKind.decision)))
+            .scalars()
+            .all()
+        )
+    assert run.status == "escalated" and conv.status == "needs_human"
+    assert any("needs a person" in n for n in names)

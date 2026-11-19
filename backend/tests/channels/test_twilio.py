@@ -121,3 +121,25 @@ async def test_real_sms_is_not_resent_after_a_step_rolls_back(tenant) -> None:
         cs.messaging.sms.client = fake
         await cs.messaging.send_sms("+15559999", "Confirmed", "run1:step:call1")
     assert len(fake.sent) == 1
+
+
+async def test_voice_same_words_on_different_turns_both_count(api, temporal_env, tenant, acts) -> None:
+    """Review finding I8: turns were deduplicated by sha(CallSid|speech), so saying "yes" twice in
+    one call replayed the first answer and dropped the second."""
+    import re
+
+    first = await api.post(f"/api/webhooks/{tenant.slug}/twilio/voice", data={"CallSid": "CA7", "From": "+15550123"})
+    action = re.search(r'action="([^"]+)"', first.text).group(1)
+    assert "turn=1" in action
+    async with worker(temporal_env.client, acts):
+        await api.post(
+            f"/api/webhooks/{tenant.slug}/twilio/voice?turn=1",
+            data={"CallSid": "CA7", "From": "+15550123", "SpeechResult": "hello"},
+        )
+        await api.post(
+            f"/api/webhooks/{tenant.slug}/twilio/voice?turn=2",
+            data={"CallSid": "CA7", "From": "+15550123", "SpeechResult": "hello"},
+        )
+    async with owner_session() as s:
+        inbound = (await s.execute(select(SbMessage).where(SbMessage.direction == "in"))).scalars().all()
+    assert len(inbound) == 2

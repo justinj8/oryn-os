@@ -274,9 +274,16 @@ class OrynRunWorkflow:
                     OrynActivities.mark_run, MarkRunInput(**self._base, status=RunStatus.running, current_step=step.id)
                 )
                 if isinstance(step, AgentStep) and step.role in self.handled_by_handoff:
-                    self.handled_by_handoff.discard(step.role)
+                    self.handled_by_handoff.clear()
                     await self._span("decision", f"{step.id}: {step.role.value} already handled via handoff — skipped")
-                elif isinstance(step, AgentStep):
+                    self.steps_done.append(step.id)
+                    current = d.next_of(step.id)
+                    continue
+                if not isinstance(step, ConditionStep):
+                    # A handoff only satisfies the *next* step for that role; any real step in between
+                    # (a wait, a notification, another agent) means a later step is new work.
+                    self.handled_by_handoff.clear()
+                if isinstance(step, AgentStep):
                     await self._agent(step.role, step.goal, step.id)
                 elif isinstance(step, ConditionStep):
                     taken = evaluate(step.if_, {"trigger": inp.trigger, "blackboard": self.blackboard})
