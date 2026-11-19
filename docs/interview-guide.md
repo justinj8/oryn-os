@@ -24,12 +24,12 @@ Use the golden path: a lead that asks for a 15% discount.
 | 1 | Webhook or simulator posts `lead.created` | `backend/oryn/api/routes/webhooks.py` |
 | 2 | Event stored idempotently; matching workflows found; `runs` rows committed; `OrynRunWorkflow` started with a deterministic id | `backend/oryn/services/ingest.py:45` |
 | 3 | Workflow interprets the pinned definition and schedules the Sales step | `backend/oryn/orchestration/run_workflow.py:67` |
-| 4 | Activity opens one tenant-scoped transaction, loads the agent thread, runs LangGraph | `backend/oryn/orchestration/activities.py`, `backend/oryn/agents/runner.py:60` |
-| 5 | Sales proposes `crm.apply_discount`; the loop evaluates the approval policy and stops with a `PendingAction` | `backend/oryn/agents/graph.py:171` |
-| 6 | Workflow records the approval and waits durably, escalating on timeout | `backend/oryn/orchestration/approval_loop.py:60` |
-| 7 | Admin approves; the API flips the row with a compare-and-set, then signals | `backend/oryn/services/approvals.py:44` |
+| 4 | Activity opens one tenant-scoped transaction, loads the agent thread, runs LangGraph | `backend/oryn/orchestration/activities.py`, `backend/oryn/agents/runner.py:63` |
+| 5 | Sales proposes `crm.apply_discount`; the loop evaluates the approval policy and stops with a `PendingAction` | `backend/oryn/agents/graph.py:185` |
+| 6 | Workflow records the approval and waits durably, escalating on timeout | `backend/oryn/orchestration/approval_loop.py:61` |
+| 7 | Admin approves; the API flips the row with a compare-and-set, then signals | `backend/oryn/services/approvals.py:48` |
 | 8 | `execute_action` applies the discount with the original idempotency key; Sales resumes and hands off | `backend/oryn/orchestration/run_workflow.py` |
-| 9 | Scheduler books, emails, reports `meeting_booked`; the explicit scheduler step is skipped because the handoff satisfied it | `backend/oryn/orchestration/run_workflow.py:263` |
+| 9 | Scheduler books, emails, reports `meeting_booked`; the explicit scheduler step is skipped because the handoff satisfied it | `backend/oryn/orchestration/run_workflow.py:276` |
 | 10 | Every model call, tool call and decision is a span, streamed over Redis and SSE | `backend/oryn/observability/spans.py` |
 
 ## The decision functions
@@ -76,7 +76,7 @@ doubling the wait each time, and auto-rejects once the ladder runs out.
 
 **Likely question.** *What if a manager approves at the same moment it auto-rejects?* The API's
 compare-and-set means exactly one decision wins. If the human's lands first, `update_approval_status`
-returns "approved" and the workflow honors it (`backend/oryn/orchestration/approval_loop.py:101`).
+returns "approved" and the workflow honors it (`backend/oryn/orchestration/approval_loop.py:118`).
 
 ### 3. `classify_error`: retry or give up
 `backend/oryn/connectors/errors.py:35`, tests in `backend/tests/connectors/test_errors.py`.
@@ -97,7 +97,7 @@ path (`backend/oryn/agents/graph.py:206`). In activities, it maps to Temporal's 
 `non_retryable` or a longer `next_retry_delay`.
 
 ### 4. Approval interception in the agent loop
-`backend/oryn/agents/graph.py:164` (`_business_tool`).
+`backend/oryn/agents/graph.py:166` (`_business_tool`).
 
 **The key design decision in the project:** a side-effecting tool that needs approval is *never executed
 inside the agent loop*. The loop returns a `PendingAction`, the activity ends, and the **workflow** waits.
@@ -105,10 +105,10 @@ inside the agent loop*. The loop returns a `PendingAction`, the activity ends, a
 **Why.** An LLM loop is the wrong place for a wait that can last days: activities have timeouts and
 heartbeats, and a crash would lose the in-memory state. Temporal workflow state is durable and
 replayable. After approval, the action runs in its own idempotent activity, and the agent resumes from
-its saved thread with the outcome appended as the tool result (`backend/oryn/agents/runner.py:60`).
+its saved thread with the outcome appended as the tool result (`backend/oryn/agents/runner.py:63`).
 
 ### 5. `run_approval_loop`: one durable wait, three callers
-`backend/oryn/orchestration/approval_loop.py:60`. Used by the run workflow, the conversation workflow
+`backend/oryn/orchestration/approval_loop.py:61`. Used by the run workflow, the conversation workflow
 (which replies "checking with a manager" immediately and follows up later) and the MCP action workflow.
 
 ### 6. `tenant_session` and row-level security
@@ -141,13 +141,15 @@ bounded below the step pool. Test: `test_span_writes_do_not_need_the_step_pool`.
 
 **Double booking.** The seeded data had 210 `meeting_booked` outcomes for 144 runs. The natural-language
 lead workflow has an explicit scheduler step, *and* the sales agent hands off to the scheduler, so the
-scheduler ran twice. Fix: a role that finished via handoff satisfies the next explicit step for that role,
-recorded as a visible decision span. Test: `test_handoff_satisfies_the_next_step_for_that_role`.
+scheduler ran twice. Fix: a role that finished via handoff satisfies the *immediately following* explicit
+step for that role, recorded as a visible decision span (the review later caught that the first version
+also skipped a scheduler step further down the workflow). Tests:
+`test_handoff_satisfies_the_next_step_for_that_role`, `test_handoff_only_satisfies_the_immediately_following_step`.
 
 **An update racing its workflow's start.** On the real Temporal server, a chat's first message can arrive
 in the same workflow task as the start, so the update handler ran before `run()` had stored the input. The
 time-skipping test server's timing hid it. Fix: `@workflow.init`, so the constructor receives the input
-(`backend/oryn/orchestration/conversation_workflow.py:79`). Test:
+(`backend/oryn/orchestration/conversation_workflow.py:86`). Test:
 `test_first_message_delivered_with_workflow_start`, which reproduces it deterministically by queuing the
 message before any worker exists.
 
@@ -168,6 +170,42 @@ it only decides approvals on runs whose trigger event came from the backfill. Te
 **A lost return, caught by mypy.** `update_approval_status` is documented to return the approval's final
 status, but an edit had dropped the final `return`, so it returned `None`. Behavior happened to be right,
 but the contract wasn't. Test: `test_update_approval_status_returns_final_status`.
+
+## Bugs found by the final code review
+
+After the build, one reviewer read the whole branch with fresh eyes. These are the findings worth
+telling, each fixed test-first.
+
+**A read-only SQL tool that could switch tenants.** The reporting agent's `db.query` tool accepted any
+`SELECT`, and Postgres lets a `SELECT` call `set_config('app.tenant_id', …)`, which is the very setting
+row-level security trusts. One crafted query could read another tenant's data. The fix is layered:
+`set_config` is revoked from `PUBLIC`; the query runs under `SET LOCAL ROLE oryn_warehouse`, a role that
+can only `SELECT` the seven business tables; there's a statement timeout; and the tenant setting is
+re-read afterwards, failing the call if it changed
+(`backend/oryn/connectors/sandbox/database.py:38`). *The lesson:* "read-only" is not the same as
+"harmless" when the security boundary is itself a session variable. Tests:
+`backend/tests/connectors/test_db_query_isolation.py`, `test_mcp_db_query_cannot_switch_tenant`.
+
+**Long conversations stopped answering.** Each chat turn reused one agent thread, and the iteration and
+token caps counted the *whole thread*, so after enough turns every new message hit the cap immediately.
+Fix: caps are measured from the thread's totals at the start of the turn, and every 15 turns the
+conversation rolls to a fresh thread seeded with a short recap
+(`backend/oryn/orchestration/conversation_workflow.py:48`). Test: `test_long_conversation_keeps_answering`.
+
+**Approval decisions that could be dropped.** A workflow tracked one "current" pending approval. A
+decision arriving a moment before the workflow registered the approval, or two parallel branches each
+waiting, meant a signal could be ignored and the run would wait until auto-reject. Fix: decisions are
+recorded by approval id whenever they arrive, and pending approvals are a list
+(`backend/oryn/orchestration/run_workflow.py:86`). Tests:
+`test_decision_arriving_before_the_workflow_sees_the_approval_is_kept`,
+`test_parallel_branches_can_each_wait_for_approval`.
+
+**Smaller ones, same pattern.** An API key could approve the actions it requested (now people only); a
+step that rolled back after a real SMS was sent would send it again on retry (delivery is now recorded
+in its own committed transaction); saying the same words twice in one phone call counted as one turn;
+a redelivered webhook didn't restart a run whose workflow never started; and an escalated conversation
+went nowhere instead of being flagged for a person
+(`backend/oryn/orchestration/activities.py:343`).
 
 ## Trade-offs and what's next
 

@@ -57,7 +57,7 @@ Password for every demo account: `oryn-demo` (local demo only).
 | **Natural-language workflow builder** | "When a new lead arrives, have the sales agent qualify it…" compiles to a validated workflow graph (deterministic grammar offline, Claude when configured). |
 | **Integrations** | CRM, calendar, billing, messaging, internal database and knowledge base behind typed interfaces: stateful sandbox implementations, plus real Twilio and SMTP. |
 | **MCP** | An MCP server exposes a tenant's tools to any MCP client, with the same approval controls. |
-| **Tenant isolation** | Postgres row-level security on every tenant table; the runtime database role cannot bypass it. |
+| **Tenant isolation** | Postgres row-level security on every tenant table; the runtime database role cannot bypass it, cannot change its own tenant setting, and the agents' SQL tool runs under a narrower read-only role. |
 | **RBAC and audit** | viewer, operator, admin and owner roles; role-gated approvals; no self-approval; an audit log of privileged actions. |
 | **Central dashboard** | Live run board, execution traces with tokens/cost/retries, approvals inbox, completion rates, cost, and business impact (meetings, pipeline, hours saved, return on model cost). |
 
@@ -119,11 +119,12 @@ every message and a retry can never text a customer twice.
 
 ## Engineering
 
-- **Tests:** 216 backend tests (pytest against real Postgres and Redis; Temporal workflows on the SDK's time-skipping test server), 16 frontend tests (Vitest), and a Playwright end-to-end test of the golden path against the running stack.
+- **Tests:** 239 backend tests (pytest against real Postgres and Redis; Temporal workflows on the SDK's time-skipping test server), 16 frontend tests (Vitest), and a Playwright end-to-end test of the golden path against the running stack.
 - **Static checks:** ruff, mypy (clean), TypeScript strict, ESLint. CI runs all of it plus image builds ([.github/workflows/ci.yml](.github/workflows/ci.yml)).
 - **Chaos:** [scripts/chaos.sh](scripts/chaos.sh) kills the worker mid-step against the Docker stack and asserts the run completes with exactly one booking.
 - **Bugs found by running it for real**, each fixed with a regression test first (write-ups in [docs/interview-guide.md](docs/interview-guide.md#bugs-found-by-running-the-system)):
   a connection-pool starvation under concurrent agent steps, a double booking when a handoff and an explicit workflow step targeted the same agent, a Temporal update racing its workflow's start, orphaned "running" spans after a crash, and the history backfill crowding out live demo traffic.
+- **Final review:** a fresh review of the whole branch found, among others, a read-only SQL tool that could switch tenants and long chats hitting their caps; each fix has a regression test ([write-ups](docs/interview-guide.md#bugs-found-by-the-final-code-review)).
 
 ## Repository layout
 
