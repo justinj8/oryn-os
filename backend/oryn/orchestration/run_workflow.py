@@ -69,7 +69,7 @@ class OrynRunWorkflow:
         self.status = RunStatus.running
         self.current_step: str | None = None
         self.blackboard: dict[str, Any] = {}
-        self.pending_approval_id = None
+        self.pending_approvals: list = []  # several when parallel branches each wait on one
         self.decisions: dict[Any, ApprovalDecisionSignal] = {}
         self.steps_done: list[str] = []
         self.executed: list[ExecutedAction] = []
@@ -84,9 +84,10 @@ class OrynRunWorkflow:
     # ------------------------------------------------------------------ signals & queries
     @workflow.signal
     def decide_approval(self, sig: ApprovalDecisionSignal) -> None:
-        # Only the approval we're currently waiting on can be decided, and only once.
-        if sig.approval_id != self.pending_approval_id or sig.approval_id in self.decisions:
-            workflow.logger.info("ignoring stale/duplicate approval decision %s", sig.approval_id)
+        # Record every decision by id, once. It may arrive before this workflow has even processed
+        # the request_approval result (a fast click, or a decision made while the worker was down).
+        if sig.approval_id in self.decisions:
+            workflow.logger.info("ignoring duplicate approval decision %s", sig.approval_id)
             return
         self.decisions[sig.approval_id] = sig
 
@@ -100,7 +101,7 @@ class OrynRunWorkflow:
             status=self.status,
             current_step=self.current_step,
             blackboard=self.blackboard,
-            pending_approval_id=self.pending_approval_id,
+            pending_approval_id=self.pending_approvals[0] if self.pending_approvals else None,
             steps_done=self.steps_done,
         )
 
@@ -125,9 +126,15 @@ class OrynRunWorkflow:
             SpanEventInput(**self._base, kind=kind, name=name, data=data or {}, status=status),
         )
 
-    def _set_pending(self, approval_id) -> None:
-        self.pending_approval_id = approval_id
-        self.status = RunStatus.waiting_approval if approval_id else RunStatus.running
+    def _add_pending(self, approval_id) -> None:
+        self.pending_approvals.append(approval_id)
+        self.status = RunStatus.waiting_approval
+
+    def _remove_pending(self, approval_id) -> None:
+        if approval_id in self.pending_approvals:
+            self.pending_approvals.remove(approval_id)
+        if not self.pending_approvals and self.status == RunStatus.waiting_approval:
+            self.status = RunStatus.running
 
     def _approval_ctx(self) -> ApprovalLoopCtx:
         assert self.inp
@@ -138,7 +145,8 @@ class OrynRunWorkflow:
             time_scale=self.inp.time_scale,
             escalation=self.inp.definition.policies.escalation,
             decision=lambda aid: self.decisions.get(aid),
-            set_pending=self._set_pending,
+            add_pending=self._add_pending,
+            remove_pending=self._remove_pending,
             cancelled=lambda: self.cancel_requested,
         )
 

@@ -94,7 +94,7 @@ class ConversationWorkflow:
         self.recent: list[list[str]] = [list(x) for x in inp.recent]
         self.lock = asyncio.Lock()
         self.last_activity: datetime = datetime.min.replace(tzinfo=UTC)
-        self.pending_approval_id = None
+        self.pending_approvals: list = []
         self.decisions: dict[Any, ApprovalDecisionSignal] = {}
         self.background: list[asyncio.Task] = []
         self.closed = False
@@ -102,7 +102,7 @@ class ConversationWorkflow:
     # ------------------------------------------------------------------ handlers
     @workflow.signal
     def decide_approval(self, sig: ApprovalDecisionSignal) -> None:
-        if sig.approval_id == self.pending_approval_id and sig.approval_id not in self.decisions:
+        if sig.approval_id not in self.decisions:  # record every decision by id, once
             self.decisions[sig.approval_id] = sig
 
     @workflow.signal
@@ -114,7 +114,7 @@ class ConversationWorkflow:
         return {
             "role": self.role.value,
             "turns": self.turns,
-            "pending_approval_id": self.pending_approval_id,
+            "pending_approval_ids": [str(a) for a in self.pending_approvals],
             "blackboard": self.blackboard,
         }
 
@@ -226,10 +226,11 @@ class ConversationWorkflow:
                 )
             return AgentReply(text=out.reply_text or out.summary, status="ok")
         if out.status == "pending_action" and out.pending_action:
-            task = asyncio.create_task(self._await_approval(out))
+            requested: dict[str, Any] = {}
+            task = asyncio.create_task(self._await_approval(out, requested))
             self.background.append(task)
-            await workflow.wait_condition(lambda: self.pending_approval_id is not None or task.done())
-            return AgentReply(text=HOLD_MESSAGE, status="pending_approval", approval_id=self.pending_approval_id)
+            await workflow.wait_condition(lambda: "id" in requested or task.done())
+            return AgentReply(text=HOLD_MESSAGE, status="pending_approval", approval_id=requested.get("id"))
         if out.status == "escalated":
             return AgentReply(
                 text="Let me connect you with someone from our team — they'll reply here shortly.", status="escalated"
@@ -238,10 +239,7 @@ class ConversationWorkflow:
             text="Sorry, something went wrong on our side. A team member will follow up.", status="escalated"
         )
 
-    def _set_pending(self, approval_id) -> None:
-        self.pending_approval_id = approval_id
-
-    async def _await_approval(self, out: AgentStepOutput) -> None:
+    async def _await_approval(self, out: AgentStepOutput, requested: dict[str, Any]) -> None:
         """Runs in the background after we've told the customer we're checking with a manager."""
         assert self.inp and out.pending_action
         p = out.pending_action
@@ -252,7 +250,8 @@ class ConversationWorkflow:
             time_scale=1.0,
             escalation=EscalationPolicy(),
             decision=lambda aid: self.decisions.get(aid),
-            set_pending=self._set_pending,
+            add_pending=lambda aid: (self.pending_approvals.append(aid), requested.setdefault("id", aid)),
+            remove_pending=lambda aid: self.pending_approvals.remove(aid) if aid in self.pending_approvals else None,
             cancelled=lambda: self.closed,
         )
         result = await run_approval_loop(
@@ -302,13 +301,13 @@ class ConversationWorkflow:
         while not self.closed:
             try:
                 await workflow.wait_condition(
-                    lambda: self.closed or (self.turns >= MAX_TURNS_PER_RUN and self.pending_approval_id is None),
+                    lambda: self.closed or (self.turns >= MAX_TURNS_PER_RUN and not self.pending_approvals),
                     timeout=IDLE_TIMEOUT,
                 )
             except TimeoutError:
                 if (
                     workflow.now() - self.last_activity >= IDLE_TIMEOUT
-                    and self.pending_approval_id is None
+                    and not self.pending_approvals
                     and not self.lock.locked()
                 ):
                     break

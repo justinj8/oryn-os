@@ -39,7 +39,8 @@ class ApprovalLoopCtx:
     time_scale: float
     escalation: EscalationPolicy
     decision: Callable[[uuid.UUID], ApprovalDecisionSignal | None]
-    set_pending: Callable[[uuid.UUID | None], None]
+    add_pending: Callable[[uuid.UUID], None]
+    remove_pending: Callable[[uuid.UUID], None]
     cancelled: Callable[[], bool]
 
 
@@ -88,7 +89,7 @@ async def run_approval_loop(
         start_to_close_timeout=QUICK_START_TO_CLOSE,
         retry_policy=QUICK_RETRY,
     )
-    ctx.set_pending(approval_id)
+    ctx.add_pending(approval_id)
     await _quick(OrynActivities.mark_run, MarkRunInput(**base, status=RunStatus.waiting_approval, current_step=step_id))
     role, level = min_role, 0
     try:
@@ -103,7 +104,7 @@ async def run_approval_loop(
                 if d.action == "escalate":
                     assert d.next_role is not None and d.timeout_seconds is not None
                     level, role, timeout = level + 1, d.next_role, d.timeout_seconds
-                    await _quick(
+                    current = await _quick(
                         OrynActivities.update_approval_status,
                         UpdateApprovalInput(
                             **base,
@@ -114,6 +115,9 @@ async def run_approval_loop(
                             expires_in_s=timeout,
                         ),
                     )
+                    if current in (ApprovalStatus.approved.value, ApprovalStatus.rejected.value):
+                        # A person decided just before the timer fired; their decision stands.
+                        return ApprovalResult(current == ApprovalStatus.approved.value, False, None, approval_id)
                     await _quick(
                         OrynActivities.record_span_event,
                         SpanEventInput(
@@ -145,7 +149,7 @@ async def run_approval_loop(
             assert sig is not None
             return ApprovalResult(sig.approved, False, sig.comment, approval_id)
     finally:
-        ctx.set_pending(None)
+        ctx.remove_pending(approval_id)
         if not ctx.cancelled():
             await _quick(OrynActivities.mark_run, MarkRunInput(**base, status=RunStatus.running, current_step=step_id))
 

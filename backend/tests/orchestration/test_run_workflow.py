@@ -236,3 +236,76 @@ async def test_handoff_satisfies_the_next_step_for_that_role(env, tenant, acts) 
             .all()
         )
     assert any("already handled" in d for d in decisions)
+
+
+async def test_decision_arriving_before_the_workflow_sees_the_approval_is_kept(isolated_temporal_env, tenant, acts):
+    """Review finding I1: a decision that lands between request_approval committing and the workflow
+    processing its result was discarded, so the run escalated and auto-rejected."""
+    from dataclasses import dataclass
+
+    from temporalio import activity as act
+
+    from oryn.orchestration.models import RequestApprovalInput
+
+    env = isolated_temporal_env
+
+    @dataclass
+    class FastDecider(OrynActivities):
+        @act.defn(name="request_approval")
+        async def request_approval(self, inp: RequestApprovalInput):
+            aid = await OrynActivities.request_approval(self, inp)
+            handle = env.client.get_workflow_handle(act.info().workflow_id)
+            await handle.signal(OrynRunWorkflow.decide_approval, ApprovalDecisionSignal(approval_id=aid, approved=True))
+            return aid
+
+    fast = FastDecider(acts.llm, acts.memory, acts.bus, acts.registry, acts.settings)
+    async with worker(env.client, fast):
+        h, rid = await start(env.client, tenant)
+        res = await h.result()
+    assert res.status == RunStatus.completed
+    async with owner_session() as s:
+        assert (await s.execute(select(SbDeal.discount_pct))).scalar_one() == 15
+        escalations = (
+            (await s.execute(select(Span.name).where(Span.run_id == rid, Span.name.like("%escalated%"))))
+            .scalars()
+            .all()
+        )
+    assert escalations == []
+
+
+async def test_parallel_branches_can_each_wait_for_approval(env, tenant, acts) -> None:
+    """Review finding I2: parallel branches shared one pending-approval slot, so one branch's
+    approval overwrote the other's and its decision was ignored."""
+    import asyncio
+
+    from oryn.models import Approval
+
+    definition = {
+        "name": "two sales passes",
+        "trigger": {"event": "lead.created"},
+        "steps": [
+            {
+                "id": "both",
+                "type": "parallel",
+                "branches": [
+                    {"id": "a", "type": "agent", "role": "sales", "goal": "Qualify"},
+                    {"id": "b", "type": "agent", "role": "sales", "goal": "Qualify again"},
+                ],
+            }
+        ],
+    }
+    async with worker(env.client, acts):
+        h, _ = await start(env.client, tenant, definition)
+        for _ in range(100):
+            async with owner_session() as s:
+                pending = (await s.execute(select(Approval.id).where(Approval.status == "pending"))).scalars().all()
+            if len(pending) == 2:
+                break
+            await asyncio.sleep(0.1)
+        assert len(pending) == 2
+        for aid in pending:
+            await h.signal(OrynRunWorkflow.decide_approval, ApprovalDecisionSignal(approval_id=aid, approved=True))
+        res = await h.result()
+    assert res.status == RunStatus.completed
+    async with owner_session() as s:
+        assert sorted((await s.execute(select(SbDeal.discount_pct))).scalars().all()) == [15, 15]

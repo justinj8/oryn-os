@@ -39,15 +39,18 @@ class McpActionWorkflow:
 
     @workflow.signal
     def decide_approval(self, sig: ApprovalDecisionSignal) -> None:
-        if sig.approval_id == self.pending and sig.approval_id not in self.decisions:
+        if sig.approval_id not in self.decisions:  # record every decision by id, once
             self.decisions[sig.approval_id] = sig
 
     @workflow.signal
     def cancel(self) -> None:
         self.cancelled = True
 
-    def _set_pending(self, approval_id) -> None:
+    def _add_pending(self, approval_id) -> None:
         self.pending = approval_id
+
+    def _remove_pending(self, approval_id) -> None:
+        self.pending = None
 
     @workflow.run
     async def run(self, inp: McpActionInput) -> dict[str, Any]:
@@ -58,7 +61,8 @@ class McpActionWorkflow:
             time_scale=1.0,
             escalation=EscalationPolicy(),
             decision=lambda a: self.decisions.get(a),
-            set_pending=self._set_pending,
+            add_pending=self._add_pending,
+            remove_pending=self._remove_pending,
             cancelled=lambda: self.cancelled,
         )
         r = await run_approval_loop(
