@@ -155,6 +155,16 @@ message before any worker exists.
 "running" forever. Fix: a retried step marks spans left open by earlier attempts as interrupted. Test:
 `test_retry_closes_spans_left_open_by_a_crashed_attempt`.
 
+**The demo was slow right when people try it.** On a fresh `make up`, ~300 history-backfill runs filled
+the worker's task queue, so anything a person clicked waited minutes behind them; the chaos and
+end-to-end checks timed out. Fix: the backfill runs on its own task queue, and the worker polls both
+with separate concurrency budgets (16 live, 6 backfill). Live work stays fast while history fills in.
+
+**A scripted manager approving real people's work.** During the backfill, the scripted "demo manager"
+approved *every* pending approval in the tenant, including the one a person had just triggered. Fix:
+it only decides approvals on runs whose trigger event came from the backfill. Test:
+`test_demo_manager_only_decides_backfill_approvals`.
+
 **A lost return, caught by mypy.** `update_approval_status` is documented to return the approval's final
 status, but an edit had dropped the final `return`, so it returned `None`. Behavior happened to be right,
 but the contract wasn't. Test: `test_update_approval_status_returns_final_status`.
