@@ -94,3 +94,30 @@ async def test_registry_uses_twilio_when_configured(tenant) -> None:
         await cs.messaging.send_sms("+15559999", "Your appointment is confirmed", "k1")
         await cs.messaging.send_sms("+15559999", "Your appointment is confirmed", "k1")  # idempotent
     assert fake.sent == [{"to": "+15559999", "from_": "+15550000", "body": "Your appointment is confirmed"}]
+
+
+async def test_real_sms_is_not_resent_after_a_step_rolls_back(tenant) -> None:
+    """Review finding I6: the dedup record lived in the agent step's transaction, so a rollback
+    (a later transient tool failure) erased it and the retry texted the customer again."""
+    from oryn.connectors.twilio import TwilioMessaging
+
+    fake = _FakeTwilio()
+    settings = Settings(twilio_account_sid="ACtest", twilio_auth_token="tok", twilio_from_number="+15550000")
+
+    class _Boom(Exception):
+        pass
+
+    try:
+        async with tenant_session(tenant.id) as s:
+            cs = await build_connector_set(s, tenant.id, settings, rng=random.Random(1))
+            assert isinstance(cs.messaging.sms, TwilioMessaging)
+            cs.messaging.sms.client = fake
+            await cs.messaging.send_sms("+15559999", "Confirmed", "run1:step:call1")
+            raise _Boom  # a later tool in the same step fails transiently → the step rolls back
+    except _Boom:
+        pass
+    async with tenant_session(tenant.id) as s:  # Temporal retries the step
+        cs = await build_connector_set(s, tenant.id, settings, rng=random.Random(1))
+        cs.messaging.sms.client = fake
+        await cs.messaging.send_sms("+15559999", "Confirmed", "run1:step:call1")
+    assert len(fake.sent) == 1

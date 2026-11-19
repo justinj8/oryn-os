@@ -233,7 +233,12 @@ class OrynRunWorkflow:
                     self.outcomes.append(out.outcome)
                     await self._quick(
                         OrynActivities.record_outcome,
-                        OutcomeInput(**self._base, type=out.outcome, value_usd=out.outcome_value_usd or 0),
+                        OutcomeInput(
+                            **self._base,
+                            type=out.outcome,
+                            value_usd=out.outcome_value_usd or 0,
+                            key=f"{self.inp.run_id}:{step_key}:{out.outcome.value}",
+                        ),
                     )
                 return
 

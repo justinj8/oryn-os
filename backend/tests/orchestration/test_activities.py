@@ -239,3 +239,18 @@ async def test_update_approval_status_returns_final_status(acts, tenant, run_row
     # Already decided: the earlier decision is reported and nothing changes.
     upd2 = upd.model_copy(update={"status": ApprovalStatus.approved})
     assert await ENV.run(acts.update_approval_status, upd2) == "rejected"
+
+
+async def test_record_outcome_is_idempotent(acts, tenant, run_row) -> None:
+    """Review finding I4: a retry after the commit inserted a second outcome and inflated pipeline $."""
+    inp = OutcomeInput(
+        tenant_id=tenant.id,
+        run_id=run_row,
+        type=OutcomeType.meeting_booked,
+        value_usd=8200,
+        key=f"{run_row}:book:meeting_booked",
+    )
+    await ENV.run(acts.record_outcome, inp)
+    await ENV.run(acts.record_outcome, inp)
+    async with owner_session() as s:
+        assert (await s.execute(select(func.count()).select_from(Outcome))).scalar_one() == 1

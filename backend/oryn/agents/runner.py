@@ -1,6 +1,7 @@
 """Runs one agent step: load the thread, run the graph, persist the thread, return the result."""
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -48,6 +49,8 @@ class AgentDeps:
     session: AsyncSession
     connectors: ConnectorSet
     settings: Settings
+    # Called before every model and tool call so a long step keeps its Temporal heartbeat alive.
+    heartbeat: Callable[[], None] = lambda: None
 
 
 async def _load_agent(s: AsyncSession, inp: AgentStepInput) -> Agent | None:

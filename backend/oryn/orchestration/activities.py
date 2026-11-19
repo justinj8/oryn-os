@@ -12,6 +12,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
@@ -157,6 +158,7 @@ class OrynActivities:
                     session=s,
                     connectors=connectors,
                     settings=self.settings,
+                    heartbeat=activity.heartbeat if activity.in_activity() else (lambda: None),
                 )
                 return await run_agent(inp, deps)
         except ApplicationError:
@@ -344,15 +346,19 @@ class OrynActivities:
                 **DEFAULT_MINUTES_SAVED,
                 **((tenant.settings or {}).get("minutes_saved_by_outcome", {}) if tenant else {}),
             }
-            s.add(
-                Outcome(
+            await s.execute(
+                pg_insert(Outcome)
+                .values(
+                    id=uuid.uuid4(),
                     tenant_id=inp.tenant_id,
                     run_id=inp.run_id,
                     type=inp.type,
                     value_usd=Decimal(str(inp.value_usd or 0)),
                     minutes_saved=int(minutes_map.get(inp.type, 0)),
                     occurred_at=OffsetClock(inp.time_offset_seconds).now(),
+                    idempotency_key=inp.key,
                 )
+                .on_conflict_do_nothing(index_elements=["tenant_id", "idempotency_key"])
             )
 
     @activity.defn(name="compensate")

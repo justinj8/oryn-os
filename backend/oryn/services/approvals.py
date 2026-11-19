@@ -32,6 +32,10 @@ async def decide(
     decided_at: datetime | None = None,
 ) -> Approval:
     """``decided_at`` lets the seed script record decisions at their simulated time."""
+    if ctx.via == "api_key":
+        # Approvals are a human control. An API key (an integration or MCP client) must not be able to
+        # approve actions, least of all the ones it requested itself.
+        raise DecisionError(403, "approvals must be decided by a person signed in to Oryn OS")
     async with tenant_session(ctx.tenant_id) as s:
         a = await s.get(Approval, approval_id)
         if a is None:

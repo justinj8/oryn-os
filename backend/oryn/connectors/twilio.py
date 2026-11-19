@@ -1,12 +1,14 @@
 """Real SMS via Twilio. Enabled when TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM_NUMBER are set.
 
 Every send is still recorded in the sandbox outbox (so the dashboard shows it) and keyed by the
-idempotency key, so a Temporal retry can never text a customer twice."""
+idempotency key, and a separately committed delivery record means
+a Temporal retry (even one that rolls the step back) never texts a customer twice."""
 
 import asyncio
 import uuid
 
 from oryn.connectors.base import MessageDTO
+from oryn.connectors.delivery import already_delivered, mark_delivered
 from oryn.connectors.errors import ConnectorError
 from oryn.connectors.sandbox.messaging import SandboxMessaging
 
@@ -28,8 +30,11 @@ class TwilioMessaging:
             return MessageDTO.model_validate(prior)
         from twilio.base.exceptions import TwilioRestException
 
-        try:
-            await asyncio.to_thread(self.client.messages.create, to=to, from_=self.from_number, body=body)
-        except TwilioRestException as e:
-            raise ConnectorError(str(e.msg), provider="twilio", status_code=e.status) from e
+        tenant_id = self.outbox.tenant_id
+        if not await already_delivered(tenant_id, idempotency_key):
+            try:
+                await asyncio.to_thread(self.client.messages.create, to=to, from_=self.from_number, body=body)
+            except TwilioRestException as e:
+                raise ConnectorError(str(e.msg), provider="twilio", status_code=e.status) from e
+            await mark_delivered(tenant_id, idempotency_key, "twilio")
         return await self.outbox.send_sms(to, body, idempotency_key, conversation_id)

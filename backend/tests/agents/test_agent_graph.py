@@ -140,3 +140,17 @@ async def test_missing_agent_fails_cleanly(world, session_for) -> None:
     t, run_id = world
     out = await _run(session_for, t, _inp(t, run_id, role=AgentRole.reporting))
     assert out.status == "failed" and "no enabled reporting agent" in out.summary
+
+
+async def test_agent_heartbeats_every_iteration(world, session_for) -> None:
+    """Review finding I5: one heartbeat per step let multi-call steps outlive the heartbeat timeout."""
+    t, run_id = world
+    beats: list[int] = []
+    cm, s, cs = await session_for(t.id)
+    try:
+        deps = make_deps(s, cs)
+        deps.heartbeat = lambda: beats.append(1)
+        out = await run_agent(_inp(t, run_id), deps)
+    finally:
+        await cm.__aexit__(None, None, None)
+    assert len(beats) >= out.iterations >= 3

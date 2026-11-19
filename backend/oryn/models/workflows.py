@@ -127,6 +127,8 @@ class AgentThread(Base, TenantScoped):
 
 class Outcome(Base, TenantScoped):
     __tablename__ = "outcomes"
+    __table_args__ = (UniqueConstraint("tenant_id", "idempotency_key"),)
+    idempotency_key: Mapped[str | None] = mapped_column(String(255))
     run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("runs.id", ondelete="CASCADE"), index=True)
     type: Mapped[OutcomeType] = mapped_column(str_enum(OutcomeType))
     value_usd: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal(0))

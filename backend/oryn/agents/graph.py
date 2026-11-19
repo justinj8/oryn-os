@@ -48,6 +48,7 @@ def build_agent_graph(deps: "AgentDeps", agent: Agent, scope: StepScope):
     allowed = {s.name for s in specs}
 
     async def think(state: GraphState) -> GraphState:
+        deps.heartbeat()
         if state["iterations"] - scope.base_iterations >= MAX_AGENT_ITERATIONS:
             return {
                 "status": "escalated",
@@ -109,6 +110,7 @@ def build_agent_graph(deps: "AgentDeps", agent: Agent, scope: StepScope):
         out: GraphState = {}
         calls = list(state["queued_calls"])
         for i, call in enumerate(calls):
+            deps.heartbeat()
             if out.get("status"):  # an earlier call ended the step; answer the rest so history stays valid
                 messages.append(_tool_msg(call, {"skipped": True}))
                 continue

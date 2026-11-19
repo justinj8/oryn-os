@@ -100,6 +100,7 @@ class NotifyInput(_TenantRun):
 class OutcomeInput(_TenantRun):
     type: OutcomeType
     value_usd: float = 0
+    key: str | None = None  # idempotency key: a retried activity must not count the outcome twice
 
 
 class CompensateInput(_TenantRun):

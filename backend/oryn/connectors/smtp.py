@@ -5,6 +5,7 @@ from email.message import EmailMessage
 from urllib.parse import unquote, urlparse
 
 from oryn.connectors.base import MessageDTO
+from oryn.connectors.delivery import already_delivered, mark_delivered
 from oryn.connectors.errors import RetryableConnectorError
 from oryn.connectors.sandbox.messaging import SandboxMessaging
 
@@ -30,16 +31,18 @@ class SmtpMessaging:
         msg["From"], msg["To"], msg["Subject"] = self.from_addr, to, subject
         msg["Message-ID"] = f"<{idempotency_key.replace(':', '.')}@oryn>"
         msg.set_content(body)
-        try:
-            await aiosmtplib.send(
-                msg,
-                hostname=self.host,
-                port=self.port,
-                username=self.user or None,
-                password=self.password or None,
-                use_tls=self.tls,
-                start_tls=not self.tls,
-            )
-        except (aiosmtplib.SMTPException, OSError) as e:
-            raise RetryableConnectorError(f"smtp: {e}", provider="smtp") from e
+        if not await already_delivered(self.outbox.tenant_id, idempotency_key):
+            try:
+                await aiosmtplib.send(
+                    msg,
+                    hostname=self.host,
+                    port=self.port,
+                    username=self.user or None,
+                    password=self.password or None,
+                    use_tls=self.tls,
+                    start_tls=not self.tls,
+                )
+            except (aiosmtplib.SMTPException, OSError) as e:
+                raise RetryableConnectorError(f"smtp: {e}", provider="smtp") from e
+            await mark_delivered(self.outbox.tenant_id, idempotency_key, "smtp")
         return await self.outbox.send_email(to, subject, body, idempotency_key, conversation_id)

@@ -222,7 +222,12 @@ class ConversationWorkflow:
             if out.outcome:
                 await self._quick(
                     OrynActivities.record_outcome,
-                    OutcomeInput(**self._base, type=out.outcome, value_usd=out.outcome_value_usd or 0),
+                    OutcomeInput(
+                        **self._base,
+                        type=out.outcome,
+                        value_usd=out.outcome_value_usd or 0,
+                        key=f"{self._base['run_id']}:{self._thread_key()}:{self.turns}:{out.outcome.value}",
+                    ),
                 )
             return AgentReply(text=out.reply_text or out.summary, status="ok")
         if out.status == "pending_action" and out.pending_action:

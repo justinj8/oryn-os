@@ -135,3 +135,18 @@ async def test_runs_list_and_cancel(api, tenant, temporal_env, acts) -> None:
         ).status_code == 202
         res = await h.result()
     assert res.status == RunStatus.cancelled
+
+
+async def test_api_key_cannot_decide_approvals(api, tenant, temporal_env, acts) -> None:
+    """Review finding I3: an MCP client's API key could approve the very action it requested."""
+    async with worker(temporal_env.client, acts):
+        h, approval, wf = await _pending(api, tenant, temporal_env, acts)
+        key = await _api_key(api, tenant)
+        r = await api.post(
+            f"/api/approvals/{approval.id}/decision",
+            headers={"Authorization": f"Bearer {key}"},
+            json={"approved": True},
+        )
+        assert r.status_code == 403
+        await h.signal(wf.cancel)
+        await h.result()

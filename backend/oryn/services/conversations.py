@@ -37,6 +37,7 @@ async def get_or_create_conversation(
     external_id: str,
     contact: dict[str, Any] | None = None,
     agent_role: AgentRole | None = None,
+    started_by_user_id: uuid.UUID | None = None,
 ) -> tuple[Conversation, Run, AgentRole]:
     async with tenant_session(tenant_id) as s:
         tenant = await s.get(Tenant, tenant_id)
@@ -61,6 +62,7 @@ async def get_or_create_conversation(
                     title=f"{CHANNEL_TITLES.get(channel, 'Conversation with')} {who}"[:300],
                     temporal_workflow_id=wf_id,
                     status=RunStatus.running,
+                    started_by_user_id=started_by_user_id,
                     started_at=datetime.now(UTC),
                 )
             )
@@ -97,8 +99,11 @@ async def send_message(
     contact: dict[str, Any] | None = None,
     address: str | None = None,
     agent_role: AgentRole | None = None,
+    started_by_user_id: uuid.UUID | None = None,
 ) -> AgentReply:
-    conv, run, role = await get_or_create_conversation(tenant_id, channel, external_id, contact, agent_role)
+    conv, run, role = await get_or_create_conversation(
+        tenant_id, channel, external_id, contact, agent_role, started_by_user_id=started_by_user_id
+    )
     # Start-or-reuse, then update. (Equivalent to update-with-start, which the local test server lacks.)
     handle = await client.start_workflow(
         ConversationWorkflow.run,

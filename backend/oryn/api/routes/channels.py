@@ -114,6 +114,7 @@ async def inbound_email(
         UserMessage(text=text, message_id=body.message_id),
         contact={"email": body.from_.lower()},
         address=body.from_.lower(),
+        started_by_user_id=ctx.user_id,
     )
 
 
