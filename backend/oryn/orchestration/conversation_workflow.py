@@ -239,6 +239,14 @@ class ConversationWorkflow:
             text="Sorry, something went wrong on our side. A team member will follow up.", status="escalated"
         )
 
+    def _add_pending(self, approval_id: Any, requested: dict[str, Any]) -> None:
+        self.pending_approvals.append(approval_id)
+        requested.setdefault("id", approval_id)  # lets the holding reply name the approval
+
+    def _remove_pending(self, approval_id: Any) -> None:
+        if approval_id in self.pending_approvals:
+            self.pending_approvals.remove(approval_id)
+
     async def _await_approval(self, out: AgentStepOutput, requested: dict[str, Any]) -> None:
         """Runs in the background after we've told the customer we're checking with a manager."""
         assert self.inp and out.pending_action
@@ -250,8 +258,8 @@ class ConversationWorkflow:
             time_scale=1.0,
             escalation=EscalationPolicy(),
             decision=lambda aid: self.decisions.get(aid),
-            add_pending=lambda aid: (self.pending_approvals.append(aid), requested.setdefault("id", aid)),
-            remove_pending=lambda aid: self.pending_approvals.remove(aid) if aid in self.pending_approvals else None,
+            add_pending=lambda aid: self._add_pending(aid, requested),
+            remove_pending=self._remove_pending,
             cancelled=lambda: self.closed,
         )
         result = await run_approval_loop(
