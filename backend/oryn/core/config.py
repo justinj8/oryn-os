@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     temporal_address: str = "localhost:7233"
     temporal_namespace: str = "default"
     temporal_task_queue: str = "oryn-main"
+    temporal_backfill_queue: str | None = None  # default: "<task queue>-backfill"
 
     jwt_secret: SecretStr = SecretStr("dev-only-change-me-oryn-jwt-secret-32b")
     jwt_ttl_minutes: int = 720

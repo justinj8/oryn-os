@@ -22,7 +22,11 @@ echo "1. $LEAD asks for a 15% discount"
 RUN=$(api "$O_TOK" -X POST "$BASE/api/simulate/events" -d "{\"type\":\"lead.created\",\"payload\":{\"name\":\"$LEAD\",\"email\":\"chaos.$RANDOM@example.com\",\"phone\":\"+15550909\",\"need\":\"heat pump install\",\"budget_usd\":9000,\"requested_discount_pct\":15}}" | json "d['run_ids'][0]")
 echo "   run $RUN"
 status() { api "$A_TOK" "$BASE/api/runs/$RUN" | json "$1"; }
-for _ in $(seq 1 60); do [ "$(status "d['status']")" = waiting_approval ] && break; sleep 1; done
+for _ in $(seq 1 120); do [ "$(status "d['status']")" = waiting_approval ] && break; sleep 1; done
+if [ "$(status "d['status']")" != waiting_approval ]; then
+  echo "The run never paused for approval (status: $(status "d['status']")). Is the worker running?" >&2
+  exit 1
+fi
 echo "2. Sales agent paused for approval; a manager approves"
 APPROVAL=$(status "[a['id'] for a in d['approvals'] if a['status']=='pending'][0]")
 api "$A_TOK" -X POST "$BASE/api/approvals/$APPROVAL/decision" -d '{"approved":true,"comment":"chaos demo"}' >/dev/null

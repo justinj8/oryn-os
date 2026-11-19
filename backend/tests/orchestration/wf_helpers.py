@@ -44,12 +44,12 @@ GOLDEN = {
 
 
 @asynccontextmanager
-async def worker(client: Client, acts: OrynActivities, sticky: bool = True):
+async def worker(client: Client, acts: OrynActivities, sticky: bool = True, queue: str | None = None):
     # sticky=False mimics a crashed worker's replacement: no cached workflow state at all.
     kw = {} if sticky else {"max_cached_workflows": 0}
     async with Worker(
         client,
-        task_queue=tq(),
+        task_queue=queue or tq(),
         workflows=[OrynRunWorkflow, ConversationWorkflow, McpActionWorkflow],
         activities=acts.all(),
         **kw,

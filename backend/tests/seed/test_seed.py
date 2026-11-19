@@ -42,15 +42,27 @@ async def test_backfill_small(isolated_temporal_env, acts) -> None:
     env = isolated_temporal_env
     summary = await seed_base()
     north = next(t for t in summary.tenants if t.slug == "northwind")
-    async with worker(env.client, acts):
-        result = await backfill(env.client, days=1, events_per_day=(3, 3), seed=7, tenants=["northwind"])
+    from oryn.core.config import get_settings
+    from oryn.orchestration.worker import backfill_queue
+
+    async with worker(env.client, acts), worker(env.client, acts, queue=backfill_queue(get_settings())):
+        result = await backfill(
+            env.client, days=1, events_per_day=(3, 3), seed=7, tenants=["northwind"], scheduled=False
+        )  # date-independent: no weekly/overdue events
     assert result.runs_started >= 3
+    # History runs on its own queue, so live demo traffic never waits behind the backfill.
+    async with owner_session() as s:
+        wf_id = (await s.execute(select(Run.temporal_workflow_id).limit(1))).scalar_one()
+    desc = await env.client.get_workflow_handle(wf_id).describe()
+    assert desc.task_queue == backfill_queue(get_settings())
     yesterday = (datetime.now(UTC) - timedelta(days=1)).date()
     async with owner_session() as s:
         runs = (await s.execute(select(Run).where(Run.tenant_id == north.id))).scalars().all()
         outcomes = (await s.execute(select(func.count()).select_from(Outcome))).scalar_one()
     assert runs and all(r.started_at.date() == yesterday for r in runs)
-    assert all(r.status in ("completed", "escalated", "failed") for r in runs)
+    assert all(r.status in ("completed", "escalated", "failed") for r in runs), [
+        (r.title, r.status, r.error) for r in runs
+    ]
     assert outcomes > 0
     async with tenant_session(north.id) as s:
         m = await overview(s, 7)
