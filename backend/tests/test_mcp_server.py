@@ -49,3 +49,14 @@ async def test_build_mcp_server_wires_handlers(tenant, temporal_env) -> None:
     assert server.get_request_handler("tools/call") is not None
     assert isinstance(server.create_initialization_options(), object)
     _ = types
+
+
+async def test_mcp_db_query_cannot_switch_tenant(tenant, temporal_env) -> None:
+    """The reviewer's probe: an MCP client (API key) running set_config through db.query."""
+    from tests.factories import make_tenant
+
+    other = await make_tenant("other-co")
+    out = await OrynMcpTools(tenant.id, temporal_env.client).call_tool(
+        "db__query", {"sql": f"select * from (select set_config('app.tenant_id', '{other.id}', true)) q"}
+    )
+    assert out["status"] == "error"

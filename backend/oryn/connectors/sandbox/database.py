@@ -21,22 +21,47 @@ def assert_read_only(sql: str) -> str:
 
 
 class SandboxDatabase(SandboxBase):
-    """The tenant's 'internal warehouse'. Runs inside the caller's tenant session, so RLS
-    confines every query to this tenant's sb_* tables. Writes are blocked twice: the
-    statement must be a single SELECT/WITH, and it is wrapped as a subquery, where Postgres
-    rejects data-modifying CTEs (``WITH x AS (DELETE ...) SELECT ...``)."""
+    """The tenant's 'internal warehouse', queried with agent- or MCP-supplied SQL.
+
+    Defense in depth, enforced by Postgres rather than by string filters:
+    * the statement runs as ``oryn_warehouse``, which can read only the business tables, not
+      users, tenants, API keys or the security-definer functions;
+    * that role cannot call ``set_config``, so it cannot switch ``app.tenant_id`` (or its role),
+      and RLS keeps every row inside the current tenant;
+    * a statement timeout bounds runaway queries;
+    * the tenant setting is verified unchanged afterwards, or the result is discarded;
+    * only a single SELECT/WITH is accepted, wrapped as a subquery (which rejects data-modifying CTEs).
+    """
+
+    STATEMENT_TIMEOUT = "5s"
 
     async def query(self, sql: str, params: dict[str, Any], limit: int = 200) -> QueryResult:
         stmt = assert_read_only(sql)
         await self.faults.maybe_fail("db.query")
+        before = (await self.s.execute(text("select current_setting('app.tenant_id', true)"))).scalar()
         try:
             async with self.s.begin_nested():
+                await self.s.execute(text("SET LOCAL ROLE oryn_warehouse"))
+                await self.s.execute(text(f"SET LOCAL statement_timeout = '{self.STATEMENT_TIMEOUT}'"))
                 res = await self.s.execute(text(f"select * from ({stmt}) as q limit {int(limit)}"), params)
                 cols = list(res.keys())
                 rows = [[_jsonable(v) for v in r] for r in res.fetchall()]
+                await self.s.execute(text("RESET ROLE"))
+                await self.s.execute(text("SET LOCAL statement_timeout TO DEFAULT"))
+                after = (await self.s.execute(text("select current_setting('app.tenant_id', true)"))).scalar()
+                if after != before:
+                    raise _TenantChanged()
+        except _TenantChanged as e:
+            raise NonRetryableConnectorError(
+                "query tried to change the tenant context", provider="database", status_code=403
+            ) from e
         except DBAPIError as e:
             raise NonRetryableConnectorError(f"query failed: {e.orig}", provider="database", status_code=400) from e
         return QueryResult(columns=cols, rows=rows)
+
+
+class _TenantChanged(Exception):
+    pass
 
 
 def _jsonable(v: Any) -> Any:
