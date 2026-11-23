@@ -10,6 +10,8 @@ anything risky happens.
 It runs **fully offline with one command and no API keys**. Real providers (Claude, Twilio, SMTP)
 switch on with environment variables.
 
+![Oryn OS landing page with the interactive demo waiting for an approval](docs/screenshots/landing.png)
+
 ![Overview dashboard](docs/screenshots/overview-light.png)
 
 ## Quickstart
@@ -20,7 +22,8 @@ Requirements: Docker (with Compose v2). Nothing else.
 make up
 ```
 
-Then open **http://localhost:5173** and sign in as `owner@northwind.test` / `oryn-demo`.
+Then open **http://localhost:5173**. The landing page runs a small interactive demo; *Open the live
+demo* signs you in (`owner@northwind.test` / `oryn-demo`).
 
 `make up` builds the images, migrates the database, starts Postgres, Redis, Temporal, the API, the
 worker and the web app, and starts generating **two weeks of history by actually running the
@@ -59,7 +62,9 @@ Password for every demo account: `oryn-demo` (local demo only).
 | **MCP** | An MCP server exposes a tenant's tools to any MCP client, with the same approval controls. |
 | **Tenant isolation** | Postgres row-level security on every tenant table; the runtime database role cannot bypass it, cannot change its own tenant setting, and the agents' SQL tool runs under a narrower read-only role. |
 | **RBAC and audit** | viewer, operator, admin and owner roles; role-gated approvals; no self-approval; an audit log of privileged actions. |
-| **Central dashboard** | Live run board, execution traces with tokens/cost/retries, approvals inbox, completion rates, cost, and business impact (meetings, pipeline, hours saved, return on model cost). |
+| **Central dashboard** | Live route board (each run drawn as the agents it passed through), execution traces with a time axis, tokens, cost and retries, an approvals queue, completion rates, cost, and business impact (meetings, pipeline, hours saved, return on model cost). |
+| **Operator tools** | Every overview metric is compared with the previous period of the same length (relative change for amounts, percentage points for rates, and lower-is-better for latency). Any finished run can be **re-run** from the event that started it, on its workflow's current version, idempotently per `Idempotency-Key` and audited. An **activity feed** collects failures, escalations, approval requests and decisions, and outcomes, with unread state. A **system status** check reports Postgres, Redis, Temporal and whether workers are polling, with latencies. |
+| **Keyboard-first UI** | A command menu (`⌘K`) that searches runs, pending approvals, agents and workflows server-side and runs actions (fire a test event, switch workspace, change theme); `G` then a letter to jump between pages; `J`/`K` through lists; `A`/`R` to approve or reject; `?` lists every shortcut. Light and dark themes. The dashboard uses the system typeface (SF Pro on Apple devices, with SF Rounded figures), grouped cards, translucent toolbars and a large title that collapses into the toolbar as you scroll. |
 
 ## Architecture
 
@@ -119,7 +124,7 @@ every message and a retry can never text a customer twice.
 
 ## Engineering
 
-- **Tests:** 239 backend tests (pytest against real Postgres and Redis; Temporal workflows on the SDK's time-skipping test server), 16 frontend tests (Vitest), and a Playwright end-to-end test of the golden path against the running stack.
+- **Tests:** 257 backend tests (pytest against real Postgres and Redis; Temporal workflows on the SDK's time-skipping test server), 23 frontend tests (Vitest), and a Playwright end-to-end test of the golden path against the running stack.
 - **Static checks:** ruff, mypy (clean), TypeScript strict, ESLint. CI runs all of it plus image builds ([.github/workflows/ci.yml](.github/workflows/ci.yml)).
 - **Chaos:** [scripts/chaos.sh](scripts/chaos.sh) kills the worker mid-step against the Docker stack and asserts the run completes with exactly one booking.
 - **Bugs found by running it for real**, each fixed with a regression test first (write-ups in [docs/interview-guide.md](docs/interview-guide.md#bugs-found-by-running-the-system)):
