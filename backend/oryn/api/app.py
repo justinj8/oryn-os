@@ -2,6 +2,7 @@ from fastapi import FastAPI
 
 from oryn import __version__
 from oryn.api.routes import (
+    activity,
     admin,
     agents,
     approvals,
@@ -13,7 +14,9 @@ from oryn.api.routes import (
     metrics,
     public_v1,
     runs,
+    search,
     simulate,
+    system,
     webhooks,
     workflows,
 )
@@ -47,4 +50,7 @@ def create_app() -> FastAPI:
     app.include_router(connectors.router)
     app.include_router(simulate.router)
     app.include_router(metrics.router)
+    app.include_router(search.router)
+    app.include_router(activity.router)
+    app.include_router(system.router)
     return app

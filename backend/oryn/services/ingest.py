@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, true
 from sqlalchemy.dialects.postgresql import insert
 from temporalio.client import Client
 from temporalio.common import WorkflowIDReusePolicy
@@ -54,7 +54,10 @@ async def ingest_event(
     time_offset_seconds: float = 0,
     time_scale: float = 1.0,
     task_queue: str | None = None,
+    only_workflow_id: uuid.UUID | None = None,
 ) -> IngestResult:
+    """``only_workflow_id`` limits a new event to one workflow: a re-run replays its event for the
+    run's own workflow without waking every other workflow that listens for the same event type."""
     now = datetime.now(UTC) + timedelta(seconds=time_offset_seconds)
     to_start: list[tuple[Run, RunInput]] = []
     async with tenant_session(tenant_id) as s:
@@ -111,7 +114,11 @@ async def ingest_event(
             rows = await s.execute(
                 select(Workflow, WorkflowVersion)
                 .join(WorkflowVersion, WorkflowVersion.id == Workflow.current_version_id)
-                .where(Workflow.trigger_event == type_, Workflow.enabled.is_(True))
+                .where(
+                    Workflow.trigger_event == type_,
+                    Workflow.enabled.is_(True),
+                    Workflow.id == only_workflow_id if only_workflow_id else true(),
+                )
             )
             for wf, ver in rows:
                 definition = WorkflowDefinition.model_validate(ver.definition)

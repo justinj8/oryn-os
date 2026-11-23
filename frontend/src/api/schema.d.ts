@@ -197,6 +197,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run Counts
+         * @description Runs per status (every status present, zero included) plus ``all``, for filter chips.
+         */
+        get: operations["run_counts_api_runs_counts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/runs/{run_id}": {
         parameters: {
             query?: never;
@@ -242,6 +262,30 @@ export interface paths {
         put?: never;
         /** Cancel Run */
         post: operations["cancel_run_api_runs__run_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/{run_id}/rerun": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rerun
+         * @description Start the run's workflow again from the event that started it, on the workflow's current version.
+         *
+         *     The replay is a new event (source ``rerun``) under its own idempotency key, so a double click with
+         *     the same ``Idempotency-Key`` starts one run, and the person re-running it counts as its starter:
+         *     they can't approve its risky actions themselves.
+         */
+        post: operations["rerun_api_runs__run_id__rerun_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -736,10 +780,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search
+         * @description Pending approvals first (they need a person), then runs, agents and workflows. RLS scopes every query.
+         */
+        get: operations["search_api_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Activity */
+        get: operations["activity_api_activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/system/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** System Status */
+        get: operations["system_status_api_system_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ActivityItem */
+        ActivityItem: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "approval_requested" | "approval_decided" | "run_failed" | "run_escalated" | "outcome";
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Title */
+            title: string;
+            /** Detail */
+            detail?: string | null;
+            /** Href */
+            href: string;
+            /** Value Usd */
+            value_usd?: number | null;
+            /**
+             * Tone
+             * @enum {string}
+             */
+            tone: "hold" | "fail" | "divert" | "clear" | "neutral";
+        };
         /** AgentIn */
         AgentIn: {
             /** Name */
@@ -1016,6 +1142,17 @@ export interface components {
          * @enum {string}
          */
         Autonomy: "suggest" | "act_with_approval" | "autonomous";
+        /** Check */
+        Check: {
+            /** Name */
+            name: string;
+            /** Ok */
+            ok: boolean;
+            /** Latency Ms */
+            latency_ms: number;
+            /** Detail */
+            detail: string;
+        };
         /** ClauseMatch */
         ClauseMatch: {
             /** Text */
@@ -1365,6 +1502,12 @@ export interface components {
             labor_savings_usd: number;
             /** Roi Multiple */
             roi_multiple: number | null;
+            /**
+             * Outcomes Value Usd
+             * @default 0
+             */
+            outcomes_value_usd: number;
+            previous?: components["schemas"]["OverviewMetrics"] | null;
         };
         /** ParallelStep */
         ParallelStep: {
@@ -1450,6 +1593,11 @@ export interface components {
              * @default []
              */
             route: string[];
+            /**
+             * Rerunnable
+             * @default false
+             */
+            rerunnable: boolean;
             /** Blackboard */
             blackboard: {
                 [key: string]: unknown;
@@ -1505,6 +1653,11 @@ export interface components {
              * @default []
              */
             route: string[];
+            /**
+             * Rerunnable
+             * @default false
+             */
+            rerunnable: boolean;
         };
         /** RunPage */
         RunPage: {
@@ -1526,6 +1679,22 @@ export interface components {
             }[];
             /** Total */
             total: number;
+        };
+        /** SearchHit */
+        SearchHit: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "approval" | "run" | "agent" | "workflow";
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Subtitle */
+            subtitle: string;
+            /** Href */
+            href: string;
         };
         /** SessionIn */
         SessionIn: {
@@ -1596,6 +1765,20 @@ export interface components {
             started_at: string;
             /** Ended At */
             ended_at: string | null;
+        };
+        /** SystemStatus */
+        SystemStatus: {
+            /** Ok */
+            ok: boolean;
+            /** Checks */
+            checks: components["schemas"]["Check"][];
+            /** Llm Provider */
+            llm_provider: string;
+            /**
+             * Checked At
+             * Format: date-time
+             */
+            checked_at: string;
         };
         /** TimeseriesPoint */
         TimeseriesPoint: {
@@ -2229,6 +2412,8 @@ export interface operations {
             query?: {
                 status?: components["schemas"]["RunStatus"] | null;
                 workflow_id?: string | null;
+                /** @description Case-insensitive match on the run title */
+                q?: string | null;
                 limit?: number;
                 before?: string | null;
             };
@@ -2248,6 +2433,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_counts_api_runs_counts_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-tenant-id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: number;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -2352,6 +2573,41 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rerun_api_runs__run_id__rerun_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                authorization?: string | null;
+                "x-tenant-id"?: string | null;
+            };
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestOut"];
                 };
             };
             /** @description Validation Error */
@@ -3461,6 +3717,8 @@ export interface operations {
         parameters: {
             query?: {
                 range?: number;
+                /** @description Include the previous period of the same length */
+                compare?: boolean;
             };
             header?: {
                 authorization?: string | null;
@@ -3546,6 +3804,110 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentLeaderboardRow"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_api_search_get: {
+        parameters: {
+            query?: {
+                q?: string;
+                /** @description Maximum hits per kind */
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-tenant-id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchHit"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    activity_api_activity_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Only items strictly older than this (for paging) */
+                before?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+                "x-tenant-id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    system_status_api_system_status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "x-tenant-id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemStatus"];
                 };
             };
             /** @description Validation Error */

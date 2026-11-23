@@ -17,9 +17,13 @@ Range = Query(30, alias="range", ge=1, le=365)
 
 
 @router.get("/overview", response_model=OverviewMetrics)
-async def get_overview(range_days: int = Range, ctx: TenantContext = Depends(require_role(Role.viewer))):
+async def get_overview(
+    range_days: int = Range,
+    compare: bool = Query(True, description="Include the previous period of the same length"),
+    ctx: TenantContext = Depends(require_role(Role.viewer)),
+):
     async with tenant_session(ctx.tenant_id) as s:
-        return await overview(s, range_days)
+        return await overview(s, range_days, compare=compare)
 
 
 @router.get("/timeseries", response_model=list[TimeseriesPoint])

@@ -3,17 +3,19 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from temporalio.client import Client
 
 from oryn.api.deps import TenantContext, require_role
+from oryn.api.routes.webhooks import IngestOut
 from oryn.core.audit import record_audit
 from oryn.core.db import tenant_session
 from oryn.core.tenancy import Role
-from oryn.models import Approval, Outcome, Run, RunStatus, Span
+from oryn.models import Approval, Event, Outcome, Run, RunStatus, Span
 from oryn.orchestration.client import temporal_client
+from oryn.services.ingest import ingest_event
 
 router = APIRouter(prefix="/api", tags=["runs"])
 
@@ -35,6 +37,7 @@ class RunOut(BaseModel):
     error: str | None
     temporal_workflow_id: str
     route: list[str] = []  # agents that held the run, in order (Sales → Scheduler …)
+    rerunnable: bool = False  # it came from an event and a workflow, so POST /rerun can replay it
 
     @classmethod
     def of(cls, r: Run) -> "RunOut":
@@ -54,6 +57,7 @@ class RunOut(BaseModel):
             outcome_summary=r.outcome_summary,
             error=r.error,
             temporal_workflow_id=r.temporal_workflow_id,
+            rerunnable=r.kind == "workflow" and r.trigger_event_id is not None and r.workflow_id is not None,
         )
 
 
@@ -138,23 +142,47 @@ class SpanOut(BaseModel):
 async def list_runs(
     status_: RunStatus | None = Query(None, alias="status"),
     workflow_id: uuid.UUID | None = None,
+    q: str | None = Query(None, max_length=200, description="Case-insensitive match on the run title"),
     limit: int = 50,
     before: datetime | None = None,
     ctx: TenantContext = Depends(require_role(Role.viewer)),
 ) -> RunPage:
     limit = max(1, min(limit, 200))
-    q = select(Run).order_by(Run.started_at.desc()).limit(limit + 1)
+    stmt = select(Run).order_by(Run.started_at.desc()).limit(limit + 1)
     if status_:
-        q = q.where(Run.status == status_)
+        stmt = stmt.where(Run.status == status_)
     if workflow_id:
-        q = q.where(Run.workflow_id == workflow_id)
+        stmt = stmt.where(Run.workflow_id == workflow_id)
     if before:
-        q = q.where(Run.started_at < before)
+        stmt = stmt.where(Run.started_at < before)
+    if q and q.strip():
+        stmt = stmt.where(title_matches(Run.title, q))
     async with tenant_session(ctx.tenant_id) as s:
-        rows = (await s.execute(q)).scalars().all()
+        rows = (await s.execute(stmt)).scalars().all()
         routes = await _routes(s, [r.id for r in rows[:limit]])
     items = [RunOut.of(r).model_copy(update={"route": routes.get(r.id, [])}) for r in rows[:limit]]
     return RunPage(items=items, next_cursor=items[-1].started_at if len(rows) > limit else None)
+
+
+def title_matches(column: Any, text: str) -> Any:
+    """Substring match where %, _ and \\ in the user's text are literal characters, not wildcards."""
+    escaped = text.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return column.ilike(f"%{escaped}%", escape="\\")
+
+
+@router.get("/runs/counts", response_model=dict[str, int])
+async def run_counts(
+    q: str | None = Query(None, max_length=200),
+    ctx: TenantContext = Depends(require_role(Role.viewer)),
+) -> dict[str, int]:
+    """Runs per status (every status present, zero included) plus ``all``, for filter chips."""
+    stmt = select(Run.status, func.count()).group_by(Run.status)
+    if q and q.strip():
+        stmt = stmt.where(title_matches(Run.title, q))
+    async with tenant_session(ctx.tenant_id) as s:
+        found = {st.value: n for st, n in (await s.execute(stmt)).all()}
+    counts = {st.value: found.get(st.value, 0) for st in RunStatus}
+    return {"all": sum(counts.values()), **counts}
 
 
 async def _routes(s, run_ids: list[uuid.UUID]) -> dict[uuid.UUID, list[str]]:
@@ -256,3 +284,45 @@ async def cancel_run(
         wf_id = run.temporal_workflow_id
     await client.get_workflow_handle(wf_id).signal("cancel")
     return {"status": "cancel_requested"}
+
+
+@router.post("/runs/{run_id}/rerun", status_code=202, response_model=IngestOut)
+async def rerun(
+    run_id: uuid.UUID,
+    idempotency_key: str | None = Header(None, alias="Idempotency-Key", max_length=100),
+    ctx: TenantContext = Depends(require_role(Role.operator)),
+    client: Client = Depends(temporal_client),
+) -> IngestOut:
+    """Start the run's workflow again from the event that started it, on the workflow's current version.
+
+    The replay is a new event (source ``rerun``) under its own idempotency key, so a double click with
+    the same ``Idempotency-Key`` starts one run, and the person re-running it counts as its starter:
+    they can't approve its risky actions themselves.
+    """
+    async with tenant_session(ctx.tenant_id) as s:
+        run = await _get_run(s, run_id)
+        if run.status in (RunStatus.running, RunStatus.waiting_approval):
+            raise HTTPException(status.HTTP_409_CONFLICT, f"run is still {run.status.value.replace('_', ' ')}")
+        event = await s.get(Event, run.trigger_event_id) if run.trigger_event_id else None
+        if run.kind != "workflow" or run.workflow_id is None or event is None:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "this run has no triggering event to replay")
+        type_, payload, workflow_id = event.type, dict(event.payload), run.workflow_id
+
+    result = await ingest_event(
+        client,
+        ctx.tenant_id,
+        type_,
+        "rerun",
+        payload,
+        f"rerun:{run_id}:{idempotency_key or uuid.uuid4()}",
+        started_by_user_id=ctx.user_id,
+        only_workflow_id=workflow_id,
+    )
+    if not result.run_ids:
+        raise HTTPException(status.HTTP_409_CONFLICT, "the workflow is turned off or no longer matches this event")
+    if result.created:
+        async with tenant_session(ctx.tenant_id) as s:
+            await record_audit(
+                s, ctx, "run.rerun", "run", run_id, after={"new_run_ids": [str(x) for x in result.run_ids]}
+            )
+    return IngestOut(event_id=str(result.event_id), created=result.created, run_ids=[str(x) for x in result.run_ids])

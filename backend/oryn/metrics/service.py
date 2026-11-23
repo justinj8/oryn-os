@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, date, datetime, timedelta
 
 from pydantic import BaseModel
-from sqlalchemy import case, distinct, func, select, text
+from sqlalchemy import case, distinct, func, select, text, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from oryn.models import Agent, Approval, ApprovalStatus, Outcome, OutcomeType, Run, RunStatus, Span, SpanKind, Tenant
@@ -40,6 +40,9 @@ class OverviewMetrics(BaseModel):
     hourly_rate_usd: float
     labor_savings_usd: float
     roi_multiple: float | None
+    outcomes_value_usd: float = 0
+    # The same metrics for the period just before this one, so every figure can show its change.
+    previous: "OverviewMetrics | None" = None
 
 
 class TimeseriesPoint(BaseModel):
@@ -70,9 +73,18 @@ async def _tenant_settings(s: AsyncSession) -> dict:
     return (tenant.settings or {}) if tenant else {}
 
 
-async def overview(s: AsyncSession, range_days: int) -> OverviewMetrics:
-    since = _since(range_days)
+async def overview(
+    s: AsyncSession, range_days: int, *, until: datetime | None = None, compare: bool = False
+) -> OverviewMetrics:
+    """Metrics for the ``range_days`` ending at ``until`` (default: now).
+
+    With ``compare`` the result carries ``previous``: the same window shifted back by its own length.
+    Point-in-time figures (pending approvals) describe now in both, since history isn't kept for them.
+    """
+    since = (until - timedelta(days=range_days)) if until else _since(range_days)
     in_window = Run.started_at >= since
+    if until is not None:
+        in_window = in_window & (Run.started_at < until)
     by_status = dict((await s.execute(select(Run.status, func.count()).where(in_window).group_by(Run.status))).all())
     total = sum(by_status.values())
     completed = by_status.get(RunStatus.completed, 0)
@@ -102,7 +114,9 @@ async def overview(s: AsyncSession, range_days: int) -> OverviewMetrics:
     wait = (
         await s.execute(
             select(func.avg(func.extract("epoch", Approval.decided_at - Approval.requested_at))).where(
-                Approval.decided_at.is_not(None), Approval.requested_at >= since
+                Approval.decided_at.is_not(None),
+                Approval.requested_at >= since,
+                Approval.requested_at < until if until is not None else true(),
             )
         )
     ).scalar()
@@ -115,6 +129,8 @@ async def overview(s: AsyncSession, range_days: int) -> OverviewMetrics:
     ).scalar_one()
 
     o = Outcome.occurred_at >= since
+    if until is not None:
+        o = o & (Outcome.occurred_at < until)
     agg = (
         await s.execute(
             select(
@@ -129,10 +145,11 @@ async def overview(s: AsyncSession, range_days: int) -> OverviewMetrics:
                 func.coalesce(func.sum(Outcome.value_usd).filter(Outcome.type == OutcomeType.invoice_collected), 0),
                 func.count().filter(Outcome.type == OutcomeType.report_delivered),
                 func.coalesce(func.sum(Outcome.minutes_saved), 0),
+                func.coalesce(func.sum(Outcome.value_usd), 0),
             ).where(o)
         )
     ).one()
-    meetings, pipeline, tickets, collected, reports, minutes = agg
+    meetings, pipeline, tickets, collected, reports, minutes, outcome_value = agg
 
     rate = float((await _tenant_settings(s)).get("hourly_rate_usd", DEFAULT_HOURLY_RATE))
     labor = minutes / 60 * rate
@@ -164,7 +181,12 @@ async def overview(s: AsyncSession, range_days: int) -> OverviewMetrics:
         hourly_rate_usd=rate,
         labor_savings_usd=labor,
         roi_multiple=labor / cost_f if cost_f > 0 else None,
+        outcomes_value_usd=float(outcome_value),
+        previous=await overview(s, range_days, until=since) if compare else None,
     )
+
+
+OverviewMetrics.model_rebuild()
 
 
 async def timeseries(s: AsyncSession, range_days: int) -> list[TimeseriesPoint]:
