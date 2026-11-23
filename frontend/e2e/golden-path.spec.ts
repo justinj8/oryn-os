@@ -21,7 +21,8 @@ test("lead → approval → booked meeting, end to end", async ({ browser }) => 
   const admin = await browser.newPage();
   await signIn(admin, "admin@northwind.test");
   await admin.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Approvals" }).click();
-  const item = admin.locator("li", { hasText: "Apply a 15.0% discount" }).first();
+  // Scope to the approvals list: the Overview's activity feed mentions the same approval.
+  const item = admin.getByRole("list", { name: "Approval requests" }).locator("> li", { hasText: "Apply a 15.0% discount" }).first();
   await expect(item).toBeVisible({ timeout: 30_000 });
   const runHref = await item.getByRole("link").getAttribute("href");
   await item.getByRole("button", { name: "Approve" }).click();

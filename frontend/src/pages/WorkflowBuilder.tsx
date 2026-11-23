@@ -63,7 +63,7 @@ export default function WorkflowBuilder() {
             value={text}
             placeholder={existing.data?.source_text ?? "When a new lead arrives, have the sales agent qualify the lead…"}
             onChange={(e) => setText(e.target.value)}
-            className="w-full rounded-md border border-line bg-paper px-3 py-2"
+            className="w-full field"
           />
           <div className="mt-3 flex flex-wrap gap-2">
             <Button variant="primary" onClick={() => draft.mutate(text)} disabled={!text.trim() || draft.isPending || !can("admin")}>

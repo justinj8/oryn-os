@@ -44,7 +44,7 @@ function Members() {
               </td>
               <td className="py-2 text-right">
                 {can("owner") && m.user_id !== user?.id ? (
-                  <select value={m.role} onChange={(e) => change.mutate({ id: m.user_id, role: e.target.value })} aria-label={`Role for ${m.name}`} className="rounded border border-line bg-paper px-2 py-1 capitalize">
+                  <select value={m.role} onChange={(e) => change.mutate({ id: m.user_id, role: e.target.value })} aria-label={`Role for ${m.name}`} className="field capitalize">
                     {ROLES.map((r) => (
                       <option key={r}>{r}</option>
                     ))}
@@ -59,14 +59,14 @@ function Members() {
       </table>
       {can("owner") && (
         <form onSubmit={submit} className="mt-4 grid gap-2 border-t border-line pt-4 text-sm sm:grid-cols-2">
-          <input required placeholder="Email" aria-label="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="rounded-md border border-line bg-paper px-3 py-1.5" />
-          <input required placeholder="Name" aria-label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="rounded-md border border-line bg-paper px-3 py-1.5" />
-          <select aria-label="Role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="rounded-md border border-line bg-paper px-2 py-1.5 capitalize">
+          <input required placeholder="Email" aria-label="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="field" />
+          <input required placeholder="Name" aria-label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="field" />
+          <select aria-label="Role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="field capitalize">
             {ROLES.map((r) => (
               <option key={r}>{r}</option>
             ))}
           </select>
-          <input placeholder="Temporary password (optional)" aria-label="Temporary password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="rounded-md border border-line bg-paper px-3 py-1.5" />
+          <input placeholder="Temporary password (optional)" aria-label="Temporary password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="field" />
           <Button type="submit" variant="primary" disabled={invite.isPending} className="sm:col-span-2">
             Add person
           </Button>
@@ -124,7 +124,7 @@ function ApiKeys() {
         }}
         className="mt-3 flex gap-2"
       >
-        <input required placeholder="Key name, e.g. CRM webhook" aria-label="Key name" value={name} onChange={(e) => setName(e.target.value)} className="min-w-0 flex-1 rounded-md border border-line bg-paper px-3 py-1.5 text-sm" />
+        <input required placeholder="Key name, e.g. CRM webhook" aria-label="Key name" value={name} onChange={(e) => setName(e.target.value)} className="min-w-0 flex-1 field text-sm" />
         <Button type="submit" variant="primary" disabled={create.isPending}>
           Create key
         </Button>

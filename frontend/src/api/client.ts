@@ -35,7 +35,7 @@ export function setUnauthorizedHandler(fn: (() => void) | null) {
 
 type Query = Record<string, string | number | boolean | null | undefined>;
 
-async function request<T>(method: string, path: string, opts: { query?: Query; body?: unknown } = {}): Promise<T> {
+async function request<T>(method: string, path: string, opts: { query?: Query; body?: unknown; headers?: Record<string, string> } = {}): Promise<T> {
   const qs = opts.query
     ? "?" +
       new URLSearchParams(
@@ -44,7 +44,7 @@ async function request<T>(method: string, path: string, opts: { query?: Query; b
           .map(([k, v]) => [k, String(v)]),
       ).toString()
     : "";
-  const headers: Record<string, string> = { Accept: "application/json" };
+  const headers: Record<string, string> = { Accept: "application/json", ...opts.headers };
   if (opts.body !== undefined) headers["Content-Type"] = "application/json";
   if (auth.token) headers.Authorization = `Bearer ${auth.token}`;
   if (auth.tenantId) headers["X-Tenant-Id"] = auth.tenantId;
@@ -65,7 +65,7 @@ async function request<T>(method: string, path: string, opts: { query?: Query; b
 
 export const api = {
   get: <T>(path: string, query?: Query) => request<T>("GET", path, { query }),
-  post: <T>(path: string, body?: unknown) => request<T>("POST", path, { body: body ?? {} }),
+  post: <T>(path: string, body?: unknown, headers?: Record<string, string>) => request<T>("POST", path, { body: body ?? {}, headers }),
   patch: <T>(path: string, body: unknown) => request<T>("PATCH", path, { body }),
   del: <T = void>(path: string) => request<T>("DELETE", path),
 };

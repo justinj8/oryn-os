@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { ArrowUpRight, Check, Clock, ShieldAlert, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, ApiError, type S } from "@/api/client";
 import { useAuth } from "@/auth/AuthProvider";
-import { Button, cx, Empty, ErrorNote, PageHeader, Skeleton } from "@/components/ui";
+import { Button, cx, Empty, ErrorNote, Kbd, PageHeader, Segmented, Skeleton } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
 import { ago, humanize, usd } from "@/lib/format";
 
@@ -14,18 +15,15 @@ const ROLE_PHRASE: Record<string, string> = {
   owner: "an owner",
 };
 
-function Args({ a }: { a: Approval }) {
+/** The one number a person is really being asked about, when there is one. */
+function headline(a: Approval): string | null {
   const args = a.action_args as Record<string, unknown>;
-  const money = args.amount_usd !== undefined ? usd(Number(args.amount_usd), 2) : args.discount_pct !== undefined ? `${args.discount_pct}% discount` : null;
-  return (
-    <div className="flex flex-wrap items-baseline gap-x-3 text-sm">
-      {money && <span className="font-display text-2xl font-semibold">{money}</span>}
-      {a.action_tool && <code className="text-ink-3">{a.action_tool}</code>}
-    </div>
-  );
+  if (args.amount_usd !== undefined) return usd(Number(args.amount_usd), 2);
+  if (args.discount_pct !== undefined) return `${args.discount_pct}% off`;
+  return null;
 }
 
-function ApprovalItem({ a }: { a: Approval }) {
+function ApprovalItem({ a, selected, onSelect }: { a: Approval; selected: boolean; onSelect: () => void }) {
   const { can } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -37,6 +35,7 @@ function ApprovalItem({ a }: { a: Approval }) {
       toast(res.status === "approved" ? "Approved — the agent is continuing." : "Rejected — the agent will continue without it.");
       qc.invalidateQueries({ queryKey: ["approvals"] });
       qc.invalidateQueries({ queryKey: ["runs"] });
+      qc.invalidateQueries({ queryKey: ["metrics"] });
     },
     onError: (e) => {
       if (e instanceof ApiError && e.status === 409) {
@@ -46,55 +45,100 @@ function ApprovalItem({ a }: { a: Approval }) {
     },
   });
   const pending = a.status === "pending";
+  const amount = headline(a);
+  const card = useRef<HTMLLIElement>(null);
+
+  // A and R decide the selected approval, when this person is allowed to.
+  useEffect(() => {
+    if (!selected || !pending) return;
+    card.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (e.metaKey || e.ctrlKey || e.altKey || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName)) return;
+      if (document.querySelector('[aria-modal="true"]') || !allowed || decide.isPending) return;
+      if (e.key === "a") {
+        e.preventDefault();
+        decide.mutate(true);
+      }
+      if (e.key === "r") {
+        e.preventDefault();
+        decide.mutate(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected, pending, allowed, decide]);
+
   return (
-    <li className={cx("grid grid-cols-[6px_1fr] overflow-hidden rounded-md border border-line bg-panel", !pending && "opacity-80")}>
-      <span className={pending ? "bg-hold" : a.status === "approved" ? "bg-clear" : "bg-idle"} aria-hidden />
-      <div className="p-4">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <p className="font-display text-xl font-semibold">{a.description}</p>
-            <Link to={`/runs/${a.run_id}`} className="text-sm text-flight hover:underline">
-              {a.run_title ?? "View run"}
-            </Link>
+    <li
+      ref={card}
+      onMouseDown={onSelect}
+      className={cx(
+        "card transition-[box-shadow,opacity] duration-200",
+        selected && pending && "shadow-[0_0_0_2px_var(--accent),0_8px_24px_-8px_rgb(0_0_0/0.15)]",
+        decide.isPending && "opacity-60",
+      )}
+    >
+      <div className="grid gap-6 p-6 md:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-ink-3">
+            <span className="flex items-center gap-1.5">
+              <Clock size={13} aria-hidden /> Requested {ago(a.requested_at)}
+            </span>
+            {a.escalation_level > 0 && <span className="font-medium text-hold">Escalated {a.escalation_level}×</span>}
+            {!pending && (
+              <span className={cx("font-medium", a.status === "approved" ? "text-clear" : "text-ink-2")}>
+                {humanize(a.status)}
+                {a.comment ? `: ${a.comment}` : ""}
+              </span>
+            )}
           </div>
-          <p className="text-right text-sm text-ink-3">
-            Requested {ago(a.requested_at)}
-            {a.escalation_level > 0 && <span className="block text-hold">Escalated {a.escalation_level}×</span>}
-          </p>
+          <p className="mt-2 font-display text-[22px] leading-snug">{a.description}</p>
+          {amount && <p className="mt-3 font-figure text-[44px] text-ink">{amount}</p>}
+          <ul className="mt-4 space-y-1.5">
+            {a.risk_reasons.map((r) => (
+              <li key={r} className="flex items-start gap-2 text-sm text-ink-2">
+                <ShieldAlert size={15} className="mt-0.5 shrink-0 text-hold" aria-hidden />
+                <span>{r}</span>
+              </li>
+            ))}
+          </ul>
+          <Link to={`/runs/${a.run_id}`} className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-ink-2 hover:text-accent">
+            {a.run_title ?? "View run"} <ArrowUpRight size={14} aria-hidden />
+          </Link>
         </div>
-        <div className="mt-3">
-          <Args a={a} />
-        </div>
-        <ul className="mt-2 list-disc pl-5 text-sm text-ink-2">
-          {a.risk_reasons.map((r) => (
-            <li key={r}>{r}</li>
-          ))}
-        </ul>
-        {pending ? (
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <label className="sr-only" htmlFor={`c-${a.id}`}>
-              Comment
+
+        {pending && (
+          <div className="flex flex-col gap-2.5 md:border-l md:border-line/70 md:pl-6">
+            <label className="text-[13px] text-ink-3" htmlFor={`c-${a.id}`}>
+              Note for the record (optional)
             </label>
-            <input
+            <textarea
               id={`c-${a.id}`}
-              placeholder="Comment (optional)"
+              rows={2}
+              placeholder="Why you decided"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              className="min-w-0 flex-1 rounded-md border border-line bg-paper px-3 py-1.5 text-sm"
+              className="field resize-none"
             />
-            <Button variant="primary" disabled={!allowed || decide.isPending} onClick={() => decide.mutate(true)}>
-              Approve
-            </Button>
-            <Button variant="danger" disabled={!allowed || decide.isPending} onClick={() => decide.mutate(false)}>
-              Reject
-            </Button>
-            {!allowed && <p className="w-full text-sm text-ink-3">Needs {ROLE_PHRASE[a.min_role] ?? a.min_role} to decide.</p>}
+            <div className="mt-1 grid grid-cols-2 gap-2">
+              <Button variant="danger" disabled={!allowed || decide.isPending} onClick={() => decide.mutate(false)}>
+                <X size={15} aria-hidden /> Reject
+              </Button>
+              <Button variant="primary" disabled={!allowed || decide.isPending} onClick={() => decide.mutate(true)}>
+                <Check size={15} aria-hidden /> Approve
+              </Button>
+            </div>
+            {allowed ? (
+              selected && (
+                <p className="flex items-center justify-center gap-1.5 text-xs text-ink-3">
+                  <Kbd>A</Kbd> approve <Kbd>R</Kbd> reject
+                </p>
+              )
+            ) : (
+              <p className="text-sm text-ink-3">Needs {ROLE_PHRASE[a.min_role] ?? a.min_role} to decide.</p>
+            )}
           </div>
-        ) : (
-          <p className="mt-3 text-sm text-ink-3">
-            {humanize(a.status)}
-            {a.comment ? `: ${a.comment}` : ""}
-          </p>
         )}
       </div>
     </li>
@@ -104,38 +148,66 @@ function ApprovalItem({ a }: { a: Approval }) {
 export default function Approvals() {
   const { tenant } = useAuth();
   const [view, setView] = useState<"pending" | "all">("pending");
+  const [sel, setSel] = useState(0);
   const q = useQuery({
     queryKey: ["approvals", view, tenant?.tenant_id],
     queryFn: () => api.get<Approval[]>("/api/approvals", { status: view === "pending" ? "pending" : undefined }),
   });
+  const items = q.data ?? [];
+  const waiting = view === "pending" ? items.length : null;
+  // Clamp instead of resetting in an effect: deciding the last card moves the focus up one.
+  const current = Math.min(sel, Math.max(items.length - 1, 0));
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (e.metaKey || e.ctrlKey || e.altKey || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName)) return;
+      if (document.querySelector('[aria-modal="true"]')) return;
+      if (e.key === "j") {
+        e.preventDefault();
+        setSel((s) => Math.min(s + 1, items.length - 1));
+      }
+      if (e.key === "k") {
+        e.preventDefault();
+        setSel((s) => Math.max(Math.min(s, items.length - 1) - 1, 0));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [items.length]);
+
   return (
     <>
       <PageHeader
         title="Approvals"
-        sub="Agents pause here before anything risky — discounts, refunds, large amounts. Nothing happens until someone decides."
+        sub="Agents pause here before anything risky: discounts, refunds, large amounts. Nothing happens until a person decides."
         actions={
-          <div className="inline-flex rounded-md border border-line bg-panel p-0.5 text-sm">
-            {(["pending", "all"] as const).map((v) => (
-              <button key={v} onClick={() => setView(v)} className={cx("rounded px-2.5 py-1", view === v ? "bg-ink text-paper" : "text-ink-2")}>
-                {v === "pending" ? "Waiting" : "History"}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            label="Show"
+            value={view}
+            onChange={(v) => (setView(v), setSel(0))}
+            options={[
+              { value: "pending", label: waiting === null ? "Waiting" : `Waiting ${waiting}` },
+              { value: "all", label: "History" },
+            ]}
+          />
         }
       />
       <ErrorNote error={q.error} />
       {q.isLoading ? (
-        <Skeleton className="h-40" />
-      ) : q.data?.length ? (
-        <ul className="grid gap-3">
-          {q.data.map((a) => (
-            <ApprovalItem key={a.id} a={a} />
+        <Skeleton className="h-56" />
+      ) : items.length ? (
+        <ul aria-label="Approval requests" className="grid gap-4">
+          {items.map((a, i) => (
+            <ApprovalItem key={a.id} a={a} selected={i === current} onSelect={() => setSel(i)} />
           ))}
         </ul>
       ) : (
-        <Empty title={view === "pending" ? "Nothing waiting for you" : "No approvals yet"}>
-          When an agent proposes something above your policy limits, it shows up here.
-        </Empty>
+        <div className="card">
+          <Empty title={view === "pending" ? "You're all caught up" : "No approvals yet"}>
+            When an agent proposes something above your policy limits, it waits here for a decision.
+          </Empty>
+        </div>
       )}
     </>
   );

@@ -52,49 +52,68 @@ export function TraceWaterfall({ spans, onSelect, selectedId }: { spans: SpanLik
   const t1 = Math.max(...spans.map((s) => (s.ended_at ? ms(s.ended_at) : Math.min(now, ms(s.started_at) + 1000))));
   const total = Math.max(t1 - t0, 1);
 
+  const ticks = [0, 0.25, 0.5, 0.75, 1];
   return (
     <div className="overflow-x-auto">
-      <ol className="min-w-[640px]" aria-label="Execution trace">
-        {rows.map(({ span: s, depth }) => {
-          const k = KIND[s.kind] ?? KIND.decision;
-          const start = ms(s.started_at);
-          const end = s.ended_at ? ms(s.ended_at) : now;
-          const left = ((start - t0) / total) * 100;
-          const width = Math.max(((end - start) / total) * 100, 0.6);
-          const dur = (end - start) / 1000;
-          return (
-            <li key={s.id}>
-              <button
-                onClick={() => onSelect(s)}
-                className={cx(
-                  "grid w-full grid-cols-[minmax(220px,38%)_1fr_72px_64px] items-center gap-3 rounded px-2 py-1 text-left text-sm hover:bg-paper",
-                  selectedId === s.id && "bg-paper",
-                )}
-              >
-                <span className="flex min-w-0 items-center gap-1.5" style={{ paddingLeft: depth * 14 }}>
-                  <k.icon size={14} className={cx("shrink-0", s.status === "error" ? "text-fail" : "text-ink-3")} aria-label={k.label} />
-                  <span className={cx("truncate", depth === 0 && "font-medium")}>{s.name}</span>
-                  {s.attempt > 1 && <span className="shrink-0 text-xs text-fail">attempt {s.attempt}</span>}
-                  {s.status === "interrupted" && <span className="shrink-0 text-xs text-ink-3">interrupted</span>}
-                </span>
-                <span className="relative h-3.5 rounded-sm bg-line/40">
-                  <span
-                    data-testid={`bar-${s.id}`}
-                    className={cx(
-                      "absolute top-0 h-full rounded-sm",
-                      s.status === "error" ? "bg-fail" : s.status === "interrupted" ? "bg-idle opacity-60" : k.bar,
-                      s.status === "running" && "animate-pulse",
-                    )}
-                    style={{ left: `${+left.toFixed(4)}%`, width: `${+width.toFixed(4)}%` }}
-                  />
-                </span>
-                <span className="text-right text-xs text-ink-3">{duration(dur)}</span>
-                <span className="text-right text-xs text-ink-3">{Number(s.cost_usd) > 0 ? cost(s.cost_usd) : ""}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
+      <div className="min-w-[680px]">
+        <div className="grid grid-cols-[minmax(220px,36%)_1fr_72px_64px] gap-3 border-b border-line px-3 pb-2 text-xs text-ink-3" aria-hidden>
+          <span>Step</span>
+          <span className="relative h-4">
+            {ticks.map((f) => (
+              <span key={f} className="absolute top-0 -translate-x-1/2 first:translate-x-0 last:-translate-x-full" style={{ left: `${f * 100}%` }}>
+                {duration((total / 1000) * f)}
+              </span>
+            ))}
+          </span>
+          <span className="text-right">Time</span>
+          <span className="text-right">Cost</span>
+        </div>
+        <ol className="py-1" aria-label="Execution trace">
+          {rows.map(({ span: s, depth }) => {
+            const k = KIND[s.kind] ?? KIND.decision;
+            const start = ms(s.started_at);
+            const end = s.ended_at ? ms(s.ended_at) : now;
+            const left = ((start - t0) / total) * 100;
+            const width = Math.max(((end - start) / total) * 100, 0.6);
+            const dur = (end - start) / 1000;
+            const on = selectedId === s.id;
+            return (
+              <li key={s.id}>
+                <button
+                  onClick={() => onSelect(s)}
+                  className={cx(
+                    "grid w-full grid-cols-[minmax(220px,36%)_1fr_72px_64px] items-center gap-3 rounded-lg px-3 py-1.5 text-left text-sm transition-colors",
+                    on ? "bg-accent-soft" : "hover:bg-sunk/70",
+                  )}
+                >
+                  <span className="flex min-w-0 items-center gap-2" style={{ paddingLeft: depth * 16 }}>
+                    <k.icon size={14} className={cx("shrink-0", s.status === "error" ? "text-fail" : on ? "text-accent" : "text-ink-3")} aria-label={k.label} />
+                    <span className={cx("truncate", depth === 0 ? "font-medium text-ink" : "text-ink-2")}>{s.name}</span>
+                    {s.attempt > 1 && <span className="shrink-0 rounded bg-fail/10 px-1 text-xs text-fail">attempt {s.attempt}</span>}
+                    {s.status === "interrupted" && <span className="shrink-0 text-xs text-ink-3">interrupted</span>}
+                  </span>
+                  <span className="relative h-5">
+                    {ticks.slice(1, -1).map((f) => (
+                      <span key={f} className="absolute inset-y-0 w-px bg-line/70" style={{ left: `${f * 100}%` }} aria-hidden />
+                    ))}
+                    <span
+                      data-testid={`bar-${s.id}`}
+                      className={cx(
+                        "absolute top-1/2 h-2.5 -translate-y-1/2 rounded-full",
+                        s.status === "error" ? "bg-fail" : s.status === "interrupted" ? "bg-idle opacity-60" : k.bar,
+                        s.status === "running" && "animate-pulse",
+                      )}
+                      style={{ left: `${+left.toFixed(4)}%`, width: `${+width.toFixed(4)}%` }}
+                    />
+                  </span>
+                  <span className="text-right text-xs text-ink-3 tabular-nums">{duration(dur)}</span>
+                  <span className="text-right text-xs text-ink-3 tabular-nums">{Number(s.cost_usd) > 0 ? cost(s.cost_usd) : ""}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
     </div>
   );
 }

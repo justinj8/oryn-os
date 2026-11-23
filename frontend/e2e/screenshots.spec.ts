@@ -12,7 +12,16 @@ async function signIn(page: Page, email: string) {
   await page.getByLabel("Password").fill("oryn-demo");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+  await expect(page.getByText("Live", { exact: true })).toBeVisible({ timeout: 10_000 });
 }
+
+test("landing", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto("/");
+  // Capture the demo at the moment it waits for the visitor's decision.
+  await expect(page.getByText("Waiting on a person")).toBeVisible({ timeout: 10_000 });
+  await page.screenshot({ path: `${OUT}/landing.png` });
+});
 
 for (const scheme of ["light", "dark"] as const) {
   test(`overview (${scheme})`, async ({ page }) => {
@@ -34,7 +43,7 @@ test("approval, trace, builder and simulators", async ({ browser }) => {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
   await signIn(page, "admin@northwind.test");
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Approvals" }).click();
-  const item = page.locator("li", { hasText: "Apply a 15.0% discount" }).first();
+  const item = page.getByRole("list", { name: "Approval requests" }).locator("> li", { hasText: "Apply a 15.0% discount" }).first();
   await expect(item).toBeVisible({ timeout: 30_000 });
   await page.screenshot({ path: `${OUT}/approvals.png` });
 

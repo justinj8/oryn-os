@@ -1,17 +1,23 @@
 @import "tailwindcss";
+@import "@fontsource-variable/instrument-sans/standard.css";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme {
-  --font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Barlow Condensed", "Barlow", ui-sans-serif, sans-serif;
+  /* SF Pro on Apple devices; the bundled Instrument Sans everywhere else, so it still works offline. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Instrument Sans Variable", system-ui, sans-serif;
+  --font-rounded: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Instrument Sans Variable", system-ui, sans-serif;
 
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
   --color-paper: var(--paper);
   --color-panel: var(--panel);
+  --color-sunk: var(--sunk);
   --color-line: var(--line);
-  --color-rail: var(--rail);
-  --color-rail-ink: var(--rail-ink);
+  --color-line-2: var(--line-2);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
 
   /* Status colors carry meaning everywhere: a run's state is its color. */
   --color-flight: var(--flight);
@@ -20,46 +26,99 @@
   --color-divert: var(--divert);
   --color-fail: var(--fail);
   --color-idle: var(--idle);
+
+  --color-switch: var(--switch);
+  --color-fill: var(--fill);
+  --color-fill-2: var(--fill-2);
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-enter: enter 180ms var(--ease-out);
+  --animate-rise: rise 220ms var(--ease-out);
 }
 
+/* Light is the default. Dark follows the OS unless the person picked a theme (data-theme on <html>). */
 :root {
-  --ink: #18212c;
-  --ink-2: #3b4756;
-  --ink-3: #66727f;
-  --paper: #edf1f4;
+  --paper: #f5f5f7;
   --panel: #ffffff;
-  --line: #d5dce3;
-  --rail: #18212c;
-  --rail-ink: #c9d3dc;
-  --flight: #2f64d6;
-  --hold: #b9770f;
-  --clear: #0e8a84;
-  --divert: #7556c2;
-  --fail: #c23b4a;
-  --idle: #8a96a3;
-  --series-1: #5469c9; /* validated: chart series on light panel */
+  --sunk: #ededf0;
+  --ink: #1d1d1f;
+  --ink-2: #48484d;
+  --ink-3: #86868b;
+  --line: #e5e5ea;
+  --line-2: #d2d2d7;
+  --accent: #0071e3;
+  --accent-soft: #e8f1fd;
+  --flight: #0071e3;
+  --hold: #c26a00;
+  --clear: #1f8a3f;
+  --divert: #8944ab;
+  --fail: #d70015;
+  --idle: #8e8e93;
+  --switch: #34c759;
+  --fill: rgb(0 0 0 / 0.05);
+  --fill-2: rgb(0 0 0 / 0.08);
+  --series-1: #0071e3; /* validated: chart series on light panel */
+  --material: rgb(245 245 247 / 0.72);
+  --card-shadow: 0 0 0 0.5px rgb(0 0 0 / 0.05), 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 16px -4px rgb(0 0 0 / 0.05);
+  --pop-shadow: 0 0 0 0.5px rgb(0 0 0 / 0.08), 0 12px 40px -8px rgb(0 0 0 / 0.22);
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --ink: #e6ecf1;
-    --ink-2: #b8c3cd;
-    --ink-3: #8794a1;
-    --paper: #0f161e;
-    --panel: #16202a;
-    --line: #283543;
-    --rail: #0a1016;
-    --rail-ink: #aab6c1;
-    --flight: #6b93ef;
-    --hold: #e2a540;
-    --clear: #35b3ab;
-    --divert: #a28ae0;
-    --fail: #e46b78;
-    --idle: #6b7785;
-    --series-1: #6f84de; /* validated: chart series on dark panel */
+  :root:not([data-theme="light"]) {
+    --paper: #000000;
+    --panel: #1c1c1e;
+    --sunk: #2c2c2e;
+    --ink: #f5f5f7;
+    --ink-2: #d1d1d6;
+    --ink-3: #98989d;
+    --line: #38383a;
+    --line-2: #48484a;
+    --accent: #2997ff;
+    --accent-soft: #0b2a4a;
+    --flight: #2997ff;
+    --hold: #ff9f0a;
+    --clear: #30d158;
+    --divert: #bf5af2;
+    --fail: #ff453a;
+    --idle: #8e8e93;
+    --switch: #30d158;
+    --fill: rgb(255 255 255 / 0.08);
+    --fill-2: rgb(255 255 255 / 0.13);
+    --series-1: #2997ff; /* validated: chart series on dark panel */
+    --material: rgb(28 28 30 / 0.72);
+    --card-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.07);
+    --pop-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.1), 0 16px 48px -8px rgb(0 0 0 / 0.6);
     color-scheme: dark;
   }
+}
+
+:root[data-theme="dark"] {
+  --paper: #000000;
+  --panel: #1c1c1e;
+  --sunk: #2c2c2e;
+  --ink: #f5f5f7;
+  --ink-2: #d1d1d6;
+  --ink-3: #98989d;
+  --line: #38383a;
+  --line-2: #48484a;
+  --accent: #2997ff;
+  --accent-soft: #0b2a4a;
+  --flight: #2997ff;
+  --hold: #ff9f0a;
+  --clear: #30d158;
+  --divert: #bf5af2;
+  --fail: #ff453a;
+  --idle: #8e8e93;
+  --switch: #30d158;
+    --fill: rgb(255 255 255 / 0.08);
+    --fill-2: rgb(255 255 255 / 0.13);
+  --series-1: #2997ff; /* validated: chart series on dark panel */
+  --material: rgb(28 28 30 / 0.72);
+  --card-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.07);
+  --pop-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.1), 0 16px 48px -8px rgb(0 0 0 / 0.6);
+  color-scheme: dark;
 }
 
 html,
@@ -67,12 +126,166 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-sans);
-  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+  line-height: 1.47;
+  letter-spacing: -0.011em;
+  font-feature-settings: "tnum" 1;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Headlines: normal width, tight. */
+@utility font-display {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  letter-spacing: -0.026em;
+  line-height: 1.08;
+}
+
+/* Figures: the condensed cut of the same family. Numbers are the product here, so they get the voice. */
+/* Figures: SF Pro Rounded on Apple devices, the way Health and Fitness set their numbers. */
+@utility font-figure {
+  font-family: var(--font-rounded);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  font-feature-settings: "tnum" 1;
+}
+
+/* A grouped surface: white on the gray window, separated by depth rather than outlines. */
+@utility card {
+  background: var(--panel);
+  border-radius: 20px;
+  box-shadow: var(--card-shadow);
+}
+
+/* Translucent chrome (sidebar, toolbar, popovers), like macOS materials. */
+@utility material {
+  background: var(--material);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+/* Text inputs, selects and text areas share one look. */
+@utility field {
+  border-radius: 10px;
+  border: 1px solid var(--line-2);
+  background: var(--panel);
+  color: var(--ink);
+  min-height: 2.375rem;
+  padding: 0.45rem 0.75rem;
+  font-size: 14.5px;
+  outline: none;
+  transition:
+    border-color 150ms,
+    box-shadow 150ms;
+  &:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  &::placeholder {
+    color: var(--ink-3);
+  }
+  &:disabled {
+    opacity: 0.6;
+  }
+}
+
+@layer base {
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--accent);
+    width: 15px;
+    height: 15px;
+  }
+}
+
+@utility hairline {
+  box-shadow: 0 0 0 1px var(--line);
 }
 
 :focus-visible {
-  outline: 2px solid var(--flight);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.985);
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes slide-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+}
+@keyframes beacon {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+}
+/* A run's signal travelling along its route: the one piece of ambient motion in the product. */
+@keyframes travel {
+  from {
+    offset-distance: 0%;
+  }
+  to {
+    offset-distance: 100%;
+  }
+}
+@keyframes signal {
+  0% {
+    left: 0;
+    opacity: 0;
+  }
+  15%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+@keyframes sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.beacon {
+  animation: beacon 1.6s var(--ease-out) infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -80,6 +293,7 @@ body {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }

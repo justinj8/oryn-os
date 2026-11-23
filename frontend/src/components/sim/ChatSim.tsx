@@ -28,7 +28,7 @@ export function Composer({ onSend, busy, placeholder }: { onSend: (t: string) =>
   }
   return (
     <form onSubmit={submit} className="mt-2 flex gap-2">
-      <input value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} aria-label={placeholder} className="min-w-0 flex-1 rounded-md border border-line bg-paper px-3 py-1.5 text-sm" />
+      <input value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} aria-label={placeholder} className="min-w-0 flex-1 field text-sm" />
       <Button type="submit" variant="primary" disabled={busy} aria-label="Send">
         <Send size={15} />
       </Button>

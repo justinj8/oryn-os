@@ -5,6 +5,7 @@ import { LoginPage } from "@/auth/LoginPage";
 import { Skeleton } from "@/components/ui";
 import { Layout } from "./Layout";
 
+const Landing = lazy(() => import("@/pages/Landing"));
 const Overview = lazy(() => import("@/pages/Overview"));
 const Runs = lazy(() => import("@/pages/Runs"));
 const RunDetail = lazy(() => import("@/pages/RunDetail"));
@@ -16,11 +17,19 @@ const Connectors = lazy(() => import("@/pages/Connectors"));
 const Simulators = lazy(() => import("@/pages/Simulators"));
 const Settings = lazy(() => import("@/pages/Settings"));
 
-function RequireAuth({ children }: { children: ReactNode }) {
+/** Signed-out visitors see the landing page at "/" and are sent to sign in everywhere else. */
+function Root() {
   const { user } = useAuth();
   const loc = useLocation();
-  if (!user) return <Navigate to="/login" state={{ from: loc.pathname }} replace />;
-  return <>{children}</>;
+  if (user) return <Layout />;
+  if (loc.pathname === "/") {
+    return (
+      <Suspense fallback={<div className="min-h-dvh bg-paper" />}>
+        <Landing />
+      </Suspense>
+    );
+  }
+  return <Navigate to="/login" state={{ from: loc.pathname + loc.search }} replace />;
 }
 
 const page = (el: ReactNode) => <Suspense fallback={<Skeleton className="h-64" />}>{el}</Suspense>;
@@ -29,11 +38,7 @@ export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   {
     path: "/",
-    element: (
-      <RequireAuth>
-        <Layout />
-      </RequireAuth>
-    ),
+    element: <Root />,
     children: [
       { index: true, element: page(<Overview />) },
       { path: "runs", element: page(<Runs />) },

@@ -27,9 +27,9 @@ export function EmailSim({ slug }: { slug: string }) {
   }
   return (
     <form onSubmit={submit} className="space-y-2 text-sm">
-      <input aria-label="From" value={from} onChange={(e) => setFrom(e.target.value)} className="w-full rounded-md border border-line bg-paper px-3 py-1.5" />
-      <input aria-label="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} className="w-full rounded-md border border-line bg-paper px-3 py-1.5" />
-      <textarea aria-label="Body" rows={3} value={body} onChange={(e) => setBody(e.target.value)} className="w-full rounded-md border border-line bg-paper px-3 py-1.5" />
+      <input aria-label="From" value={from} onChange={(e) => setFrom(e.target.value)} className="w-full field" />
+      <input aria-label="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} className="w-full field" />
+      <textarea aria-label="Body" rows={3} value={body} onChange={(e) => setBody(e.target.value)} className="w-full field" />
       <Button type="submit" variant="primary" disabled={busy}>
         {busy ? "Sending…" : "Send email to the business"}
       </Button>

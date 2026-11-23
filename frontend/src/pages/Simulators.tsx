@@ -5,36 +5,9 @@ import { useAuth } from "@/auth/AuthProvider";
 import { ChatSim } from "@/components/sim/ChatSim";
 import { EmailSim } from "@/components/sim/EmailSim";
 import { PhoneSim } from "@/components/sim/PhoneSim";
-import { Button, PageHeader, Section } from "@/components/ui";
+import { Button, PageHeader, Section, Switch } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
-
-const PRESETS: { label: string; hint: string; type: string; payload: () => Record<string, unknown> }[] = [
-  {
-    label: "New lead asking for a 15% discount",
-    hint: "Sales qualifies, asks a manager about the discount, then hands off to scheduling.",
-    type: "lead.created",
-    payload: () => ({ name: "Dana Reyes", email: `dana.${Date.now()}@example.com`, phone: "+15550101", company: "Reyes Co", need: "heat pump install", budget_usd: 8200, requested_discount_pct: 15, source: "web" }),
-  },
-  {
-    label: "New lead with a small budget",
-    hint: "Not qualified yet — goes to the nurture email.",
-    type: "lead.created",
-    payload: () => ({ name: "Sam Patel", email: `sam.${Date.now()}@example.com`, need: "AC tune-up", budget_usd: 600, source: "web" }),
-  },
-  {
-    label: "Support ticket: refund of $750",
-    hint: "Over the admin threshold — needs an admin to approve.",
-    type: "ticket.created",
-    payload: () => ({ name: "Ann Lee", email: "ann.lee@example.com", subject: "Refund", body: "Please refund $750 on INV-1001" }),
-  },
-  {
-    label: "Overdue invoices",
-    hint: "The ops agent texts payment reminders.",
-    type: "invoice.overdue",
-    payload: () => ({}),
-  },
-  { label: "Weekly report", hint: "The reporting agent queries the warehouse and emails a summary.", type: "schedule.weekly", payload: () => ({}) },
-];
+import { PRESETS } from "@/lib/presets";
 
 export default function Simulators() {
   const { tenant, can } = useAuth();
@@ -63,7 +36,7 @@ export default function Simulators() {
         sub={
           <>
             Play the outside world. Everything here goes through the same webhooks and workflows a real customer would — watch it on the{" "}
-            <Link to="/" className="text-flight hover:underline">
+            <Link to="/" className="text-accent hover:underline">
               Overview
             </Link>
             .
@@ -86,22 +59,20 @@ export default function Simulators() {
             ))}
           </ul>
           <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line pt-4 text-sm">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={!!t?.enabled}
-                disabled={!can("operator") || !t}
-                onChange={(e) => setTraffic.mutate({ enabled: e.target.checked, rate_per_min: t?.rate_per_min ?? 4 })}
-              />
-              Live traffic
-            </label>
+            <Switch
+              showLabel
+              label="Live traffic"
+              checked={!!t?.enabled}
+              disabled={!can("operator") || !t}
+              onChange={(enabled) => setTraffic.mutate({ enabled, rate_per_min: t?.rate_per_min ?? 4 })}
+            />
             <label className="flex items-center gap-2">
               <span className="text-ink-3">events per minute</span>
               <select
                 value={t?.rate_per_min ?? 4}
                 disabled={!can("operator")}
                 onChange={(e) => setTraffic.mutate({ enabled: !!t?.enabled, rate_per_min: Number(e.target.value) })}
-                className="rounded border border-line bg-paper px-2 py-1"
+                className="field"
               >
                 {[2, 4, 6, 10, 20].map((n) => (
                   <option key={n}>{n}</option>

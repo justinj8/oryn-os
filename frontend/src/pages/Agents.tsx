@@ -3,7 +3,7 @@ import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { api, type S } from "@/api/client";
 import { useAuth } from "@/auth/AuthProvider";
-import { Button, cx, Empty, ErrorNote, PageHeader, Section, Skeleton, Tag } from "@/components/ui";
+import { Button, cx, Empty, ErrorNote, PageHeader, Section, Skeleton, Switch, Tag } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
 import { ago } from "@/lib/format";
 
@@ -14,9 +14,9 @@ const AUTONOMY_SHORT: Record<string, string> = {
 };
 
 const AUTONOMY = {
-  suggest: "Suggest only — every action needs a person's approval.",
-  act_with_approval: "Act with approval — reads freely, asks before changing anything.",
-  autonomous: "Autonomous — acts on its own; only high-risk or over-policy actions need approval.",
+  suggest: { title: "Suggest only", body: "Every action waits for a person's approval." },
+  act_with_approval: { title: "Ask before acting", body: "Reads freely, asks before changing anything." },
+  autonomous: { title: "Act on its own", body: "Only high-risk or over-policy actions need approval." },
 } as const;
 
 function matches(pattern: string, name: string) {
@@ -66,41 +66,57 @@ function Editor({ agent, tools }: { agent: S["AgentOut"]; tools: S["ToolOut"][] 
       }
     >
       <fieldset disabled={!editable} className="space-y-5">
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={draft.enabled} onChange={(e) => setDraft({ ...draft, enabled: e.target.checked })} />
-          Enabled
-        </label>
-        <div>
-          <p className="mb-1.5 text-sm font-medium">Autonomy</p>
-          <div className="grid gap-1.5">
-            {Object.entries(AUTONOMY).map(([k, v]) => (
-              <label key={k} className="flex items-start gap-2 text-sm">
-                <input type="radio" name="autonomy" checked={draft.autonomy === k} onChange={() => setDraft({ ...draft, autonomy: k as S["Autonomy"] })} className="mt-1" />
-                <span>{v}</span>
-              </label>
-            ))}
+        <Switch
+          showLabel
+          label={draft.enabled ? "On: picks up new work" : "Off: new work skips this agent"}
+          checked={draft.enabled}
+          disabled={!editable}
+          onChange={(enabled) => setDraft({ ...draft, enabled })}
+        />
+        <fieldset>
+          <legend className="mb-2 text-sm font-medium">How much it may do alone</legend>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {Object.entries(AUTONOMY).map(([k, v]) => {
+              const on = draft.autonomy === k;
+              return (
+                <label
+                  key={k}
+                  className={cx(
+                    "flex cursor-pointer flex-col gap-1 rounded-xl border p-3.5 text-sm transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent",
+                    on ? "border-accent bg-accent-soft/60" : "border-line hover:border-line-2",
+                  )}
+                >
+                  <span className="flex items-center gap-2 font-medium">
+                    <input type="radio" name="autonomy" checked={on} onChange={() => setDraft({ ...draft, autonomy: k as S["Autonomy"] })} className="sr-only" />
+                    <span className={cx("h-3.5 w-3.5 rounded-full border-2", on ? "border-accent bg-accent shadow-[inset_0_0_0_2px_var(--panel)]" : "border-line-2")} aria-hidden />
+                    {v.title}
+                  </span>
+                  <span className="text-ink-3">{v.body}</span>
+                </label>
+              );
+            })}
           </div>
-        </div>
+        </fieldset>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm">
             <span className="font-medium">Token budget per run</span>
-            <input type="number" className="mt-1 w-full rounded-md border border-line bg-paper px-2 py-1.5" value={draft.max_tokens_per_run} onChange={(e) => setDraft({ ...draft, max_tokens_per_run: Number(e.target.value) })} />
+            <input type="number" className="mt-1 w-full field" value={draft.max_tokens_per_run} onChange={(e) => setDraft({ ...draft, max_tokens_per_run: Number(e.target.value) })} />
           </label>
           <label className="text-sm">
             <span className="font-medium">Cost budget per run (USD)</span>
-            <input type="number" step="0.05" className="mt-1 w-full rounded-md border border-line bg-paper px-2 py-1.5" value={String(draft.max_cost_usd_per_run)} onChange={(e) => setDraft({ ...draft, max_cost_usd_per_run: e.target.value })} />
+            <input type="number" step="0.05" className="mt-1 w-full field" value={String(draft.max_cost_usd_per_run)} onChange={(e) => setDraft({ ...draft, max_cost_usd_per_run: e.target.value })} />
           </label>
         </div>
         <div>
-          <p className="mb-1.5 text-sm font-medium">Tools this agent may use</p>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <p className="mb-2 text-sm font-medium">Tools this agent may use</p>
+          <div className="grid gap-x-6 gap-y-4 rounded-xl border border-line p-4 sm:grid-cols-2">
             {groups.map(([connector, list]) => (
               <div key={connector}>
-                <p className="mb-1 text-sm text-ink-3 capitalize">{connector}</p>
+                <p className="mb-1.5 text-[13px] font-medium text-ink-3 capitalize">{connector}</p>
                 {list.map((t) => (
-                  <label key={t.name} className="flex items-center gap-2 py-0.5 text-sm" title={t.description}>
+                  <label key={t.name} className="flex cursor-pointer items-center gap-2.5 rounded-md py-1 text-sm hover:text-ink" title={t.description}>
                     <input type="checkbox" checked={has(t.name)} onChange={() => toggle(t.name)} />
-                    <code className="text-ink-2">{t.name}</code>
+                    <code className="text-[13px] text-ink-2">{t.name}</code>
                     {t.risk === "high" && <Tag tone="fail">money</Tag>}
                     {t.risk === "medium" && <Tag>writes</Tag>}
                   </label>
@@ -111,9 +127,12 @@ function Editor({ agent, tools }: { agent: S["AgentOut"]; tools: S["ToolOut"][] 
         </div>
         <label className="block text-sm">
           <span className="font-medium">Extra instructions</span>
-          <textarea rows={4} className="mt-1 w-full rounded-md border border-line bg-paper px-3 py-2" value={draft.system_prompt} onChange={(e) => setDraft({ ...draft, system_prompt: e.target.value })} />
+          <span className="ml-2 text-ink-3">Added to this agent's system prompt</span>
+          <textarea rows={4} className="mt-1 w-full field" value={draft.system_prompt} onChange={(e) => setDraft({ ...draft, system_prompt: e.target.value })} />
         </label>
-        <p className="text-xs text-ink-3">Model: {agent.model}</p>
+        <p className="text-[13px] text-ink-3">
+          Model <code className="rounded-md bg-sunk px-1.5 py-0.5 text-ink-2">{agent.model}</code>
+        </p>
       </fieldset>
     </Section>
   );
@@ -167,17 +186,23 @@ export default function Agents() {
       {agents.isLoading ? (
         <Skeleton className="h-64" />
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
-          <nav aria-label="Agents" className="flex gap-2 overflow-x-auto lg:flex-col">
+        <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
+          <nav aria-label="Agents" className="flex gap-1 overflow-x-auto lg:sticky lg:top-4 lg:flex-col lg:self-start">
             {agents.data?.map((a) => (
               <button
                 key={a.id}
                 onClick={() => setSelected(a.id)}
-                className={cx("shrink-0 rounded-md border px-3 py-2 text-left", current?.id === a.id ? "border-ink bg-panel" : "border-line hover:border-ink-3")}
+                aria-current={current?.id === a.id ? "true" : undefined}
+                className={cx(
+                  "shrink-0 rounded-xl px-3.5 py-2.5 text-left transition-colors",
+                  current?.id === a.id ? "bg-panel text-ink shadow-[var(--card-shadow)]" : "text-ink-2 hover:bg-fill",
+                )}
               >
-                <span className="block font-medium">{a.name}</span>
-                <span className="block text-sm text-ink-3">{AUTONOMY_SHORT[a.autonomy]}</span>
-                {!a.enabled && <span className="text-sm text-fail">Turned off</span>}
+                <span className="flex items-center gap-2 font-medium">
+                  <span className={cx("h-1.5 w-1.5 rounded-full", a.enabled ? "bg-clear" : "bg-idle")} aria-hidden />
+                  {a.name}
+                </span>
+                <span className="block pl-3.5 text-[13px] text-ink-3">{a.enabled ? AUTONOMY_SHORT[a.autonomy] : "Turned off"}</span>
               </button>
             ))}
           </nav>

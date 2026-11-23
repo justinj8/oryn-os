@@ -53,7 +53,7 @@ function ConnectorCard({ c }: { c: S["ConnectorOut"] }) {
             </label>
             <label className="flex items-center justify-between gap-2">
               Outage for first attempts
-              <select value={outage} onChange={(e) => setOutage(Number(e.target.value))} className="rounded border border-line bg-paper px-2 py-1">
+              <select value={outage} onChange={(e) => setOutage(Number(e.target.value))} className="field">
                 {[0, 1, 2, 3].map((n) => (
                   <option key={n} value={n}>
                     {n === 0 ? "None" : `${n}`}
