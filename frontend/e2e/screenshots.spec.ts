@@ -6,6 +6,11 @@ test.use({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
 
 const OUT = "../docs/screenshots";
 
+/** README images are JPEGs: a retina capture of a dashboard is about a quarter the size of the PNG. */
+function shot(page: Page, name: string) {
+  return page.screenshot({ path: `${OUT}/${name}.jpg`, type: "jpeg", quality: 82 });
+}
+
 async function signIn(page: Page, email: string) {
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
@@ -18,9 +23,10 @@ async function signIn(page: Page, email: string) {
 test("landing", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto("/");
-  // Capture the demo at the moment it waits for the visitor's decision.
-  await expect(page.getByText("Waiting on a person")).toBeVisible({ timeout: 10_000 });
-  await page.screenshot({ path: `${OUT}/landing.png` });
+  // The website embeds the running app; wait for it to finish loading inside the frame.
+  await expect(page.frameLocator("iframe").getByRole("heading", { name: "Overview" })).toBeVisible({ timeout: 20_000 });
+  await page.waitForTimeout(2000);
+  await shot(page, "website");
 });
 
 for (const scheme of ["light", "dark"] as const) {
@@ -28,7 +34,7 @@ for (const scheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: scheme });
     await signIn(page, "owner@northwind.test");
     await page.waitForTimeout(1500); // let chart bars finish animating
-    await page.screenshot({ path: `${OUT}/overview-${scheme}.png`, fullPage: true });
+    await shot(page, scheme === "light" ? "overview" : "overview-dark");
   });
 }
 
@@ -46,7 +52,7 @@ test("approval, trace, builder and simulators", async ({ browser }) => {
   const item = page.getByRole("list", { name: "Approval requests" }).locator("> li", { hasText: "Apply a 15.0% discount" }).first();
   const panel = page.getByRole("region", { name: "Decision" });
   await expect(item).toBeVisible({ timeout: 30_000 });
-  await page.screenshot({ path: `${OUT}/approvals.png` });
+  await shot(page, "approvals");
 
   await item.click();
   const href = await panel.getByRole("link", { name: /workflow/i }).getAttribute("href");
@@ -54,20 +60,20 @@ test("approval, trace, builder and simulators", async ({ browser }) => {
   await page.goto(href!);
   await expect(page.getByRole("region", { name: "Run details" }).getByText("Completed")).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(800);
-  await page.screenshot({ path: `${OUT}/trace.png`, fullPage: true });
+  await shot(page, "runs");
 
   await page.goto("/workflows/new");
   await page.getByRole("button", { name: /When a new lead arrives, have the sales agent/ }).first().click();
   await page.getByRole("button", { name: "Build workflow" }).click();
   await expect(page.getByRole("img", { name: /Workflow graph/ })).toBeVisible();
-  await page.screenshot({ path: `${OUT}/builder.png`, fullPage: true });
+  await shot(page, "builder");
 
   await page.goto("/simulators");
   const chat = page.getByLabel("Message as a website visitor");
   await chat.fill("Hi, I'd like to book an appointment");
   await chat.press("Enter");
   await expect(page.getByText(/I have these openings/)).toBeVisible({ timeout: 15_000 });
-  await page.screenshot({ path: `${OUT}/simulators.png` });
+  await shot(page, "simulators");
 });
 
 async function authHeaders(page: Page) {

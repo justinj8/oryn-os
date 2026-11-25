@@ -10,9 +10,46 @@ anything risky happens.
 It runs **fully offline with one command and no API keys**. Real providers (Claude, Twilio, SMTP)
 switch on with environment variables.
 
-![Oryn OS landing page with the interactive demo waiting for an approval](docs/screenshots/landing.png)
+**Try it live: [oryn-os-silk.vercel.app](https://oryn-os-silk.vercel.app)**. The website and the full
+dashboard run in your browser, with no sign-up. Click *Open the app*, then *Sign in* (any password
+works). The hosted copy replays a recording of the real system: two weeks of runs, a discount waiting
+for your approval, and simulated runs you can start yourself. It needs no backend, so nothing you do
+there touches real data.
 
-![Overview dashboard](docs/screenshots/overview-light.png)
+![The Oryn OS website, with the real dashboard embedded and running](docs/screenshots/website.png)
+
+## A tour
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/overview.png" alt="Overview: a summary sentence, metric tabs driving one chart, and what needs you"><br><b>Overview.</b> One sentence on how the period went, metric tabs that drive a single chart, then what needs you, what's running and recent activity.</td>
+<td width="50%"><img src="docs/screenshots/overview-dark.png" alt="Overview in dark mode"><br><b>Light and dark.</b> A sun/moon switch on the website and in the app, shared across both, over a frosted-glass background.</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/runs.png" alt="Runs: list pane with filters and a run inspector showing its trace"><br><b>Runs.</b> A list pane with search and status filters next to an inspector: the route between agents, duration, cost, tokens and outcome, and the full span trace. <kbd>J</kbd>/<kbd>K</kbd> move through runs.</td>
+<td><img src="docs/screenshots/approvals.png" alt="Approvals: the request list and a decision panel explaining why a person must decide"><br><b>Approvals.</b> Every request says why a person has to decide (the policy it crossed). <kbd>A</kbd> approves, <kbd>R</kbd> rejects, and the next request opens.</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/command-menu.png" alt="Command menu searching runs for a customer"><br><b>Command menu.</b> <kbd>⌘</kbd><kbd>K</kbd> searches the workspace and does things: go anywhere, fire a simulated event, start a workflow, switch business or theme.</td>
+<td><img src="docs/screenshots/context-menu.png" alt="Right-click menu on a run"><br><b>Context menus.</b> Right-click a run to open it, run it again, copy its link or jump to it in Temporal.</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/builder.png" alt="Workflow builder turning a plain-English description into a graph"><br><b>Workflow builder.</b> Describe a workflow in a sentence or two. Oryn drafts the graph, conditions and approval policy for you to save.</td>
+<td><img src="docs/screenshots/agents.png" alt="Agent settings: autonomy level, budgets and allowed tools"><br><b>Agents.</b> For each specialist: how much it may do alone, its token and dollar budgets per run, and exactly which tools it may call.</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/simulators.png" alt="Simulators: fire events, chat as a website visitor, text or email the business"><br><b>Simulators.</b> Play the outside world: fire events, chat as a website visitor, text or email the business, or switch on live traffic.</td>
+<td><img src="docs/screenshots/connectors.png" alt="Connectors and the sandbox data the agents act on"><br><b>Connectors.</b> CRM, calendar, billing, email, SMS, voice and the internal database. Each one runs offline as a sandbox until real credentials are set.</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/approvals-dark.png" alt="Approvals in dark mode"></td>
+<td><img src="docs/screenshots/settings.png" alt="Settings: people, roles, API keys and the audit log"><br><b>Settings.</b> People and roles, API keys for the public agent API and the MCP server, and the audit log.</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/website-how.png" alt="Website: how a lead becomes a booked meeting"></td>
+<td><img src="docs/screenshots/website-safety.png" alt="Website: safety and durability"></td>
+</tr>
+</table>
 
 ## Quickstart
 
@@ -22,8 +59,8 @@ Requirements: Docker (with Compose v2). Nothing else.
 make up
 ```
 
-Then open **http://localhost:5173**. The landing page runs a small interactive demo; *Open the live
-demo* signs you in (`owner@northwind.test` / `oryn-demo`).
+Then open **http://localhost:5173**. The website embeds the running dashboard; *Open the app* takes
+you to sign in (`owner@northwind.test` / `oryn-demo`).
 
 `make up` builds the images, migrates the database, starts Postgres, Redis, Temporal, the API, the
 worker and the web app, and starts generating **two weeks of history by actually running the
@@ -165,6 +202,20 @@ make seed           # demo data + 14-day backfill (needs the worker running)
 cd frontend && pnpm install && pnpm dev   # http://localhost:5173
 make test
 make lint
+```
+
+### The hosted demo
+
+[oryn-os-silk.vercel.app](https://oryn-os-silk.vercel.app) is the same frontend built with
+`VITE_DEMO=1`. In that build the API client answers from a recording of a real stack
+(`frontend/src/demo/snapshot.json`) rather than the network. Timestamps shift to the present, a
+simulated run replays a recorded run's trace and pauses for approval, and an in-browser event bus
+stands in for the live stream. To refresh the recording and build it:
+
+```bash
+cd frontend
+pnpm record:demo    # reads from a running API on :8800
+pnpm build:demo     # static site in dist/, deployed by Vercel (see frontend/vercel.json)
 ```
 
 ## Limitations
