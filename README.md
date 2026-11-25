@@ -16,38 +16,42 @@ works). The hosted copy replays a recording of the real system: two weeks of run
 for your approval, and simulated runs you can start yourself. It needs no backend, so nothing you do
 there touches real data.
 
-![The Oryn OS website, with the real dashboard embedded and running](docs/screenshots/website.png)
+![The Oryn OS website, with the real dashboard embedded and running](docs/screenshots/website.jpg)
 
 ## A tour
 
 <table>
 <tr>
-<td width="50%"><img src="docs/screenshots/overview.png" alt="Overview: a summary sentence, metric tabs driving one chart, and what needs you"><br><b>Overview.</b> One sentence on how the period went, metric tabs that drive a single chart, then what needs you, what's running and recent activity.</td>
-<td width="50%"><img src="docs/screenshots/overview-dark.png" alt="Overview in dark mode"><br><b>Light and dark.</b> A sun/moon switch on the website and in the app, shared across both, over a frosted-glass background.</td>
+<td width="50%"><img src="docs/screenshots/overview.jpg" alt="Overview: a summary sentence, metric tabs driving one chart, and what needs you"><br><b>Overview.</b> One sentence on how the period went, metric tabs that drive a single chart, then what needs you, what's running and recent activity.</td>
+<td width="50%"><img src="docs/screenshots/overview-dark.jpg" alt="Overview in dark mode"><br><b>Light and dark.</b> A sun/moon switch on the website and in the app, shared across both, over a frosted-glass background.</td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/runs.png" alt="Runs: list pane with filters and a run inspector showing its trace"><br><b>Runs.</b> A list pane with search and status filters next to an inspector: the route between agents, duration, cost, tokens and outcome, and the full span trace. <kbd>J</kbd>/<kbd>K</kbd> move through runs.</td>
-<td><img src="docs/screenshots/approvals.png" alt="Approvals: the request list and a decision panel explaining why a person must decide"><br><b>Approvals.</b> Every request says why a person has to decide (the policy it crossed). <kbd>A</kbd> approves, <kbd>R</kbd> rejects, and the next request opens.</td>
+<td><img src="docs/screenshots/runs.jpg" alt="Runs: list pane with filters and a run inspector showing its trace"><br><b>Runs.</b> A list pane with search and status filters next to an inspector: the route between agents, duration, cost, tokens and outcome, and the full span trace. <kbd>J</kbd>/<kbd>K</kbd> move through runs.</td>
+<td><img src="docs/screenshots/approvals.jpg" alt="Approvals: the request list and a decision panel explaining why a person must decide"><br><b>Approvals.</b> Every request says why a person has to decide (the policy it crossed). <kbd>A</kbd> approves, <kbd>R</kbd> rejects, and the next request opens.</td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/command-menu.png" alt="Command menu searching runs for a customer"><br><b>Command menu.</b> <kbd>⌘</kbd><kbd>K</kbd> searches the workspace and does things: go anywhere, fire a simulated event, start a workflow, switch business or theme.</td>
-<td><img src="docs/screenshots/context-menu.png" alt="Right-click menu on a run"><br><b>Context menus.</b> Right-click a run to open it, run it again, copy its link or jump to it in Temporal.</td>
+<td><img src="docs/screenshots/command-menu.jpg" alt="Command menu searching runs for a customer"><br><b>Command menu.</b> <kbd>⌘</kbd><kbd>K</kbd> searches the workspace and does things: go anywhere, fire a simulated event, start a workflow, switch business or theme.</td>
+<td><img src="docs/screenshots/context-menu.jpg" alt="Right-click menu on a run"><br><b>Context menus.</b> Right-click a run to open it, run it again, copy its link or jump to it in Temporal.</td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/builder.png" alt="Workflow builder turning a plain-English description into a graph"><br><b>Workflow builder.</b> Describe a workflow in a sentence or two. Oryn drafts the graph, conditions and approval policy for you to save.</td>
-<td><img src="docs/screenshots/agents.png" alt="Agent settings: autonomy level, budgets and allowed tools"><br><b>Agents.</b> For each specialist: how much it may do alone, its token and dollar budgets per run, and exactly which tools it may call.</td>
+<td><img src="docs/screenshots/builder.jpg" alt="Workflow builder turning a plain-English description into a graph"><br><b>Workflow builder.</b> Describe a workflow in a sentence or two. Oryn drafts the graph, conditions and approval policy for you to save.</td>
+<td><img src="docs/screenshots/agents.jpg" alt="Agent settings: autonomy level, budgets and allowed tools"><br><b>Agents.</b> For each specialist: how much it may do alone, its token and dollar budgets per run, and exactly which tools it may call.</td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/simulators.png" alt="Simulators: fire events, chat as a website visitor, text or email the business"><br><b>Simulators.</b> Play the outside world: fire events, chat as a website visitor, text or email the business, or switch on live traffic.</td>
-<td><img src="docs/screenshots/connectors.png" alt="Connectors and the sandbox data the agents act on"><br><b>Connectors.</b> CRM, calendar, billing, email, SMS, voice and the internal database. Each one runs offline as a sandbox until real credentials are set.</td>
+<td><img src="docs/screenshots/simulators.jpg" alt="Simulators: fire events, chat as a website visitor, text or email the business"><br><b>Simulators.</b> Play the outside world: fire events, chat as a website visitor, text or email the business, or switch on live traffic.</td>
+<td><img src="docs/screenshots/connectors.jpg" alt="Connectors and the sandbox data the agents act on"><br><b>Connectors.</b> CRM, calendar, billing, email, SMS, voice and the internal database. Each one runs offline as a sandbox until real credentials are set.</td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/approvals-dark.png" alt="Approvals in dark mode"></td>
-<td><img src="docs/screenshots/settings.png" alt="Settings: people, roles, API keys and the audit log"><br><b>Settings.</b> People and roles, API keys for the public agent API and the MCP server, and the audit log.</td>
+<td><img src="docs/screenshots/approvals-dark.jpg" alt="Approvals in dark mode"></td>
+<td><img src="docs/screenshots/settings.jpg" alt="Settings: people, roles, API keys and the audit log"><br><b>Settings.</b> People and roles, API keys for the public agent API and the MCP server, and the audit log.</td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/website-how.png" alt="Website: how a lead becomes a booked meeting"></td>
-<td><img src="docs/screenshots/website-safety.png" alt="Website: safety and durability"></td>
+<td><img src="docs/screenshots/runs-dark.jpg" alt="Runs and the run inspector in dark mode"></td>
+<td><img src="docs/screenshots/website-dark.jpg" alt="The website in dark mode"></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/website-how.jpg" alt="Website: how a lead becomes a booked meeting"></td>
+<td><img src="docs/screenshots/website-safety.jpg" alt="Website: safety and durability"></td>
 </tr>
 </table>
 
