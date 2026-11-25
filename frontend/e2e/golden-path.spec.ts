@@ -23,15 +23,18 @@ test("lead → approval → booked meeting, end to end", async ({ browser }) => 
   await admin.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Approvals" }).click();
   // Scope to the approvals list: the Overview's activity feed mentions the same approval.
   const item = admin.getByRole("list", { name: "Approval requests" }).locator("> li", { hasText: "Apply a 15.0% discount" }).first();
+  const panel = admin.getByRole("region", { name: "Decision" });
   await expect(item).toBeVisible({ timeout: 30_000 });
-  const runHref = await item.getByRole("link").getAttribute("href");
-  await item.getByRole("button", { name: "Approve" }).click();
+  await item.click();
+  const runHref = await panel.getByRole("link", { name: /workflow/i }).getAttribute("href");
+  await panel.getByRole("button", { name: "Approve" }).click();
   await expect(admin.getByText(/Approved — the agent is continuing/)).toBeVisible();
 
   // The run finishes with a booked meeting and a visible handoff in the trace.
   await admin.goto(runHref!);
-  await expect(admin.getByText("Completed")).toBeVisible({ timeout: 30_000 });
-  await expect(admin.getByRole("button", { name: /sales → scheduler/ })).toBeVisible();
-  await expect(admin.getByRole("button", { name: /calendar\.book/ })).toBeVisible();
-  await expect(admin.getByText(/Meeting booked/)).toBeVisible();
+  const run = admin.getByRole("region", { name: "Run details" });
+  await expect(run.getByText("Completed")).toBeVisible({ timeout: 30_000 });
+  await expect(run.getByRole("button", { name: /sales → scheduler/ })).toBeVisible();
+  await expect(run.getByRole("button", { name: /calendar\.book/ })).toBeVisible();
+  await expect(run.getByText(/Meeting booked/)).toBeVisible();
 });

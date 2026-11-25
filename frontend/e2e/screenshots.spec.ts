@@ -44,13 +44,15 @@ test("approval, trace, builder and simulators", async ({ browser }) => {
   await signIn(page, "admin@northwind.test");
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Approvals" }).click();
   const item = page.getByRole("list", { name: "Approval requests" }).locator("> li", { hasText: "Apply a 15.0% discount" }).first();
+  const panel = page.getByRole("region", { name: "Decision" });
   await expect(item).toBeVisible({ timeout: 30_000 });
   await page.screenshot({ path: `${OUT}/approvals.png` });
 
-  const href = await item.getByRole("link").getAttribute("href");
-  await item.getByRole("button", { name: "Approve" }).click();
+  await item.click();
+  const href = await panel.getByRole("link", { name: /workflow/i }).getAttribute("href");
+  await panel.getByRole("button", { name: "Approve" }).click();
   await page.goto(href!);
-  await expect(page.getByText("Completed")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("region", { name: "Run details" }).getByText("Completed")).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(800);
   await page.screenshot({ path: `${OUT}/trace.png`, fullPage: true });
 

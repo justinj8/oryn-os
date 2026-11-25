@@ -4,9 +4,9 @@ import { cx } from "@/components/ui";
 export function LogoMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" className={cx("shrink-0", className)} aria-hidden>
-      <rect width="32" height="32" rx="8" className="fill-ink" />
-      <circle cx="16" cy="16" r="8" fill="none" strokeWidth="2.6" className="stroke-paper" />
-      <circle cx="22.2" cy="10.8" r="3.4" strokeWidth="1.6" className="fill-accent stroke-ink" />
+      <rect width="32" height="32" rx="8" fill="#1d1d1f" />
+      <circle cx="16" cy="16" r="8" fill="none" strokeWidth="2.6" stroke="#ffffff" />
+      <circle cx="22.2" cy="10.8" r="3.4" strokeWidth="1.6" stroke="#1d1d1f" className="fill-accent" />
     </svg>
   );
 }

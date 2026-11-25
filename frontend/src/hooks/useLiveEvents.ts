@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { DEMO } from "@/api/client";
 import { useEffect, useRef, useState } from "react";
 
 export type LiveEvent = { type: string; tenant_id: string; run_id: string | null; data: Record<string, unknown>; ts: string };
@@ -32,7 +33,36 @@ export function useLiveEvents({
   }, [onEvent]);
 
   useEffect(() => {
-    if (!tenantId || !token || typeof EventSource === "undefined") return;
+    if (!tenantId || !token) return;
+    const apply = (ev: LiveEvent) => {
+      if (ev.type.startsWith("run.") || ev.type.startsWith("span.")) {
+        qc.invalidateQueries({ queryKey: ["runs"] });
+        if (ev.run_id) qc.invalidateQueries({ queryKey: ["run", ev.run_id] });
+      }
+      if (ev.type.startsWith("approval.")) qc.invalidateQueries({ queryKey: ["approvals"] });
+      if (ev.type === "run.updated" || ev.type.startsWith("approval.")) {
+        qc.invalidateQueries({ queryKey: ["metrics"] });
+        qc.invalidateQueries({ queryKey: ["activity"] });
+      }
+      if (ev.type === "message.sent") qc.invalidateQueries({ queryKey: ["sandbox"] });
+      handler.current?.(ev);
+    };
+    if (DEMO) {
+      // The demo engine runs in this page, so its events arrive directly instead of over SSE.
+      let off: (() => void) | undefined;
+      let alive = true;
+      import("@/demo/server").then(({ onDemoEvent }) => {
+        if (!alive) return;
+        setConnected(true);
+        off = onDemoEvent((ev) => apply({ type: ev.type, tenant_id: tenantId, run_id: ev.run_id, data: {}, ts: new Date().toISOString() }));
+      });
+      return () => {
+        alive = false;
+        off?.();
+        setConnected(false);
+      };
+    }
+    if (typeof EventSource === "undefined") return;
     let es: EventSource | null = null;
     let retry = 1000;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -46,17 +76,7 @@ export function useLiveEvents({
         return;
       }
       retry = 1000;
-      if (ev.type.startsWith("run.") || ev.type.startsWith("span.")) {
-        qc.invalidateQueries({ queryKey: ["runs"] });
-        if (ev.run_id) qc.invalidateQueries({ queryKey: ["run", ev.run_id] });
-      }
-      if (ev.type.startsWith("approval.")) qc.invalidateQueries({ queryKey: ["approvals"] });
-      if (ev.type === "run.updated" || ev.type.startsWith("approval.")) {
-        qc.invalidateQueries({ queryKey: ["metrics"] });
-        qc.invalidateQueries({ queryKey: ["activity"] });
-      }
-      if (ev.type === "message.sent") qc.invalidateQueries({ queryKey: ["sandbox"] });
-      handler.current?.(ev);
+      apply(ev);
     };
 
     const connect = () => {

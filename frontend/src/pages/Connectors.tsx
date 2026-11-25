@@ -27,7 +27,7 @@ function ConnectorCard({ c }: { c: S["ConnectorOut"] }) {
     onError: (e) => toast((e as Error).message, "error"),
   });
   return (
-    <div className="rounded-lg border border-line bg-panel p-4">
+    <div className="card p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="font-display text-lg font-semibold">{KIND_LABEL[c.kind] ?? c.kind}</p>

@@ -16,9 +16,9 @@ export function Button({ variant = "secondary", size = "md", className, ...p }: 
       {...p}
       className={cx(
         "inline-flex select-none items-center justify-center gap-1.5 rounded-full font-medium whitespace-nowrap transition-[background-color,color,transform,opacity] duration-150 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40",
-        size === "sm" && "h-7 px-3 text-[13px]",
-        size === "md" && "h-9 px-4 text-[14px]",
-        size === "lg" && "h-11 px-6 text-[15px]",
+        size === "sm" && "h-7 px-3 text-[12.5px]",
+        size === "md" && "h-8 px-3.5 text-[13px]",
+        size === "lg" && "h-10 px-5 text-[14px]",
         (variant === "primary" || variant === "accent") && "bg-accent text-white hover:brightness-110",
         variant === "secondary" && "bg-sunk text-ink hover:bg-line",
         variant === "danger" && "bg-fail/10 text-fail hover:bg-fail/15",
@@ -29,35 +29,36 @@ export function Button({ variant = "secondary", size = "md", className, ...p }: 
   );
 }
 
-/* The toolbar shows the page title once the large title scrolls away, the way iOS and macOS do. */
-type Chrome = { setTitle: (t: string) => void; setCollapsed: (c: boolean) => void };
+/* Layout hands every toolbar the app-wide controls (search, status, activity) through this context. */
+type Chrome = { toolbar: ReactNode };
 export const ChromeContext = createContext<Chrome | null>(null);
 
-export function PageHeader({ title, sub, actions }: { title: string; sub?: ReactNode; actions?: ReactNode }) {
+/** A window toolbar: the title on the left, this view's controls and the app-wide ones on the right. */
+/** ``local`` toolbars (a list pane beside an inspector) leave the app-wide controls to the pane on the right. */
+export function Toolbar({ title, children, leading, className, local }: { title?: ReactNode; children?: ReactNode; leading?: ReactNode; className?: string; local?: boolean }) {
   const chrome = useContext(ChromeContext);
-  const sentinel = useRef<HTMLHeadingElement>(null);
+  return (
+    <div className={cx("sticky top-0 z-20 flex h-[52px] shrink-0 items-center gap-2 border-b border-line/70 bg-pane pr-3 pl-12 backdrop-blur-xl backdrop-saturate-150 md:px-5", className)}>
+      {leading}
+      {title && <h1 className="min-w-0 truncate text-[15px] font-semibold tracking-[-0.012em]">{title}</h1>}
+      <div className="ml-auto flex items-center gap-1.5">
+        {children}
+        {chrome?.toolbar && <span className={cx("flex items-center gap-1.5", local && "lg:hidden")}>{chrome.toolbar}</span>}
+      </div>
+    </div>
+  );
+}
+
+/** A scrolling page: toolbar on top, an optional one-line description, then content. */
+export function PageHeader({ title, sub, actions }: { title: string; sub?: ReactNode; actions?: ReactNode }) {
   useEffect(() => {
     document.title = `${title} · Oryn OS`;
-    chrome?.setTitle(title);
-    const el = sentinel.current;
-    if (!chrome || !el || typeof IntersectionObserver === "undefined") return;
-    const io = new IntersectionObserver(([e]) => chrome.setCollapsed(!e.isIntersecting), { rootMargin: "-56px 0px 0px 0px" });
-    io.observe(el);
-    return () => {
-      io.disconnect();
-      chrome.setCollapsed(false);
-    };
-  }, [title, chrome]);
+  }, [title]);
   return (
-    <header className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
-      <div className="min-w-0">
-        <h1 ref={sentinel} className="font-display text-[34px] text-ink">
-          {title}
-        </h1>
-        {sub && <div className="mt-1 max-w-2xl text-[15px] text-ink-3">{sub}</div>}
-      </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
-    </header>
+    <div className="-mx-5 mb-6 md:-mx-8">
+      <Toolbar title={title}>{actions}</Toolbar>
+      {sub && <div className="px-5 pt-5 text-[13px] text-ink-3 md:px-8">{sub}</div>}
+    </div>
   );
 }
 
@@ -78,8 +79,8 @@ export function Section({
     <section className={cx("card", className)}>
       {title && (
         <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-1">
-          <h2 className="text-[17px] font-semibold tracking-[-0.022em]">{title}</h2>
-          {aside && <div className="text-[14px] text-ink-3">{aside}</div>}
+          <h2 className="text-[14px] font-semibold tracking-[-0.01em]">{title}</h2>
+          {aside && <div className="text-[13px] text-ink-3">{aside}</div>}
         </div>
       )}
       <div className={flush ? "" : "p-5 pt-3"}>{children}</div>
@@ -222,9 +223,9 @@ export function Figure({
 }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[13px] text-ink-3">{label}</dt>
+      <dt className="text-[12px] text-ink-3">{label}</dt>
       <dd className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <span className={cx("font-figure text-ink", size === "lg" ? "text-[40px]" : "text-[28px]")} data-testid={testId}>
+        <span className={cx("font-figure text-ink", size === "lg" ? "text-[34px]" : "text-[24px]")} data-testid={testId}>
           {value}
         </span>
         {note && <span className="text-[13px] text-ink-3">{note}</span>}

@@ -10,7 +10,9 @@
     "test": "vitest run",
     "lint": "eslint src",
     "typecheck": "tsc -b --noEmit",
-    "gen:api": "openapi-typescript openapi.json -o src/api/schema.d.ts"
+    "gen:api": "openapi-typescript openapi.json -o src/api/schema.d.ts",
+    "build:demo": "tsc -b && VITE_DEMO=1 vite build",
+    "record:demo": "node scripts/record-demo.mjs"
   },
   "dependencies": {
     "@fontsource-variable/instrument-sans": "^5.3.0",

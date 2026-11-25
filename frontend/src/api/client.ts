@@ -35,7 +35,21 @@ export function setUnauthorizedHandler(fn: (() => void) | null) {
 
 type Query = Record<string, string | number | boolean | null | undefined>;
 
+/** The hosted build has no backend: requests are answered in the browser from a recording (src/demo). */
+export const DEMO = import.meta.env.VITE_DEMO === "1";
+
+async function demo<T>(method: string, path: string, query?: Query, body?: unknown): Promise<T> {
+  const { demoRequest, DemoError } = await import("@/demo/server");
+  try {
+    return (await demoRequest(method, path, query, body)) as T;
+  } catch (e) {
+    if (e instanceof DemoError) throw new ApiError(e.status, e.detail);
+    throw e;
+  }
+}
+
 async function request<T>(method: string, path: string, opts: { query?: Query; body?: unknown; headers?: Record<string, string> } = {}): Promise<T> {
+  if (DEMO) return demo<T>(method, path, opts.query, opts.body);
   const qs = opts.query
     ? "?" +
       new URLSearchParams(

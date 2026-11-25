@@ -1,7 +1,9 @@
 import { ArrowLeft, Check } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
+import { DEMO as HOSTED_DEMO } from "@/api/client";
 import { Logo } from "@/components/brand/Logo";
+import { ThemeToggle } from "@/components/chrome/ThemeToggle";
 import { Button, cx } from "@/components/ui";
 import { useAuth } from "./AuthProvider";
 
@@ -35,15 +37,18 @@ export function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-dvh bg-paper lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <main className="grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <div className="flex flex-col px-6 py-6 sm:px-12">
         <div className="flex items-center justify-between">
           <Link to="/" aria-label="Oryn OS home">
             <Logo />
           </Link>
-          <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-ink-3 hover:text-ink">
-            <ArrowLeft size={15} aria-hidden /> Home
-          </Link>
+          <span className="flex items-center gap-3">
+            <ThemeToggle />
+            <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-ink-3 hover:text-ink">
+              <ArrowLeft size={15} aria-hidden /> Home
+            </Link>
+          </span>
         </div>
         <div className="mx-auto flex w-full max-w-[400px] flex-1 flex-col justify-center py-12">
           <h1 className="font-display text-[38px]">Sign in</h1>
@@ -79,7 +84,11 @@ export function LoginPage() {
               {busy ? "Signing in…" : "Sign in"}
             </Button>
           </form>
-          <p className="mt-6 text-[13px] text-ink-3">Every demo account uses the password oryn-demo. This runs on your machine only.</p>
+          <p className="mt-6 text-[13px] text-ink-3">
+            {HOSTED_DEMO
+              ? "This hosted demo runs entirely in your browser on a recording of the real system. Any password works."
+              : "Every demo account uses the password oryn-demo. This runs on your machine only."}
+          </p>
           <div className="mt-5 flex flex-wrap gap-2 lg:hidden">
             {DEMO.map((d) => (
               <button
@@ -98,7 +107,7 @@ export function LoginPage() {
         </div>
       </div>
 
-      <aside className="hidden flex-col justify-center border-l border-line bg-panel px-12 py-12 lg:flex">
+      <aside className="glass hidden flex-col justify-center border-l border-line/70 px-12 py-12 lg:flex">
         <div className="mx-auto w-full max-w-[460px]">
           <p className="text-[13px] font-medium text-ink-3">Demo accounts</p>
           <ul className="mt-3 divide-y divide-line rounded-2xl border border-line" aria-label="Demo accounts">

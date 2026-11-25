@@ -195,7 +195,7 @@ export default function Agents() {
                 aria-current={current?.id === a.id ? "true" : undefined}
                 className={cx(
                   "shrink-0 rounded-xl px-3.5 py-2.5 text-left transition-colors",
-                  current?.id === a.id ? "bg-panel text-ink shadow-[var(--card-shadow)]" : "text-ink-2 hover:bg-fill",
+                  current?.id === a.id ? "bg-pane text-ink shadow-[var(--card-shadow)]" : "text-ink-2 hover:bg-fill",
                 )}
               >
                 <span className="flex items-center gap-2 font-medium">

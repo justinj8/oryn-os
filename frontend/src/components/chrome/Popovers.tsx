@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Bell, CheckCircle2, CircleAlert, Hand, Route, ShieldCheck, Sparkles, type LucideIcon } from "lucide-react";
+import { Bell, CheckCircle2, CircleAlert, Hand, Route, ShieldCheck, ShieldX, Sparkles, type LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { api, type S } from "@/api/client";
@@ -72,7 +72,7 @@ export function ActivityList({ items, seenAt = Infinity, onNavigate }: { items: 
   return (
     <ul className="divide-y divide-line/70">
       {items.map((i) => {
-        const k = KIND[i.kind];
+        const k = i.kind === "approval_decided" && i.tone !== "clear" ? { icon: ShieldX, tint: "bg-idle" } : KIND[i.kind];
         const unread = new Date(i.at).getTime() > seenAt;
         return (
           <li key={i.id}>
@@ -126,11 +126,11 @@ export function ActivityButton() {
         <button
           onClick={() => !open && markSeen()}
           aria-label={unread ? `Activity, ${unread} new` : "Activity"}
-          className={cx("relative flex h-9 w-9 items-center justify-center rounded-full text-ink-2 transition-colors hover:bg-sunk hover:text-ink", open && "bg-sunk text-ink")}
+          className={cx("relative flex h-7 w-7 items-center justify-center rounded-md text-ink-2 transition-colors hover:bg-fill hover:text-ink", open && "bg-fill-2 text-ink")}
         >
-          <Bell size={18} strokeWidth={1.9} />
+          <Bell size={15} strokeWidth={2} />
           {unread > 0 && (
-            <span className="absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-fail px-1 text-[10px] font-semibold text-white ring-2 ring-paper">
+            <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-fail px-1 text-[9px] font-semibold text-white ring-2 ring-panel">
               {unread > 9 ? "9+" : unread}
             </span>
           )}
@@ -180,10 +180,10 @@ export function StatusButton() {
       button={(open) => (
         <button
           aria-label={`System status: ${label}`}
-          className={cx("flex h-9 items-center gap-2 rounded-full px-3 text-[13px] text-ink-2 transition-colors hover:bg-sunk hover:text-ink", open && "bg-sunk text-ink")}
+          className={cx("flex h-7 items-center gap-1.5 rounded-md px-2 text-[12.5px] text-ink-2 transition-colors hover:bg-fill hover:text-ink", open && "bg-fill-2 text-ink")}
         >
           <span className={cx("h-2 w-2 rounded-full", tone)} aria-hidden />
-          <span className="hidden lg:inline">{label}</span>
+          <span className="hidden xl:inline">{label}</span>
         </button>
       )}
     >

@@ -1,203 +1,194 @@
-import { ArrowRight, Code } from "lucide-react";
+import { BriefcaseBusiness, CalendarDays, ChartColumn, ChevronRight, LifeBuoy, Lock, Receipt, RotateCcw, Terminal } from "lucide-react";
 import { Link } from "react-router-dom";
+import { DEMO } from "@/api/client";
+import { IconTile, type TileColor } from "@/components/brand/IconTile";
 import { Logo } from "@/components/brand/Logo";
-import { LiveDemo } from "@/components/landing/LiveDemo";
+import { ThemeToggle } from "@/components/chrome/ThemeToggle";
+import { LiveApp } from "@/components/landing/LiveApp";
 
 const REPO = "https://github.com/justinj8/oryn-os";
 
-const AGENTS = [
-  { name: "Sales", job: "Qualifies new leads, creates deals and proposes terms.", channels: "Web, email, SMS" },
-  { name: "Support", job: "Answers tickets and issues refunds inside your limits.", channels: "Chat, email" },
-  { name: "Scheduler", job: "Finds a slot, books it and sends the confirmation.", channels: "Phone, email" },
-  { name: "Ops", job: "Chases overdue invoices with polite reminders.", channels: "SMS" },
-  { name: "Reporting", job: "Queries your database and writes the weekly summary.", channels: "Email" },
+const AGENTS: { name: string; job: string; channels: string; icon: typeof Lock; color: TileColor }[] = [
+  { name: "Sales", job: "Qualifies new leads, creates deals and proposes terms.", channels: "Web, email, SMS", icon: BriefcaseBusiness, color: "blue" },
+  { name: "Support", job: "Answers tickets and issues refunds inside your limits.", channels: "Chat, email", icon: LifeBuoy, color: "green" },
+  { name: "Scheduler", job: "Finds a slot, books it and sends the confirmation.", channels: "Phone, email", icon: CalendarDays, color: "orange" },
+  { name: "Ops", job: "Chases overdue invoices with polite reminders.", channels: "SMS", icon: Receipt, color: "red" },
+  { name: "Reporting", job: "Queries your database and writes the weekly summary.", channels: "Email", icon: ChartColumn, color: "purple" },
+];
+
+const STEPS = [
+  { title: "A lead arrives", body: "From your website, a text or an email. Oryn records it once, however many times it's delivered." },
+  { title: "Sales qualifies it", body: "Looks up the contact, opens a deal and proposes terms, all on the record." },
+  { title: "You approve the discount", body: "It's over your 10% limit, so the run waits for a person. Days, if it has to." },
+  { title: "Scheduler books it", body: "Finds a slot, books it and emails a confirmation. The booking happens exactly once." },
 ];
 
 const POLICY = [
   { action: "Discounts", free: "Up to 10%", above: "An operator approves" },
-  { action: "Refunds", free: "Up to $200", above: "An operator approves, or an admin above $500" },
-  { action: "Any amount", free: "Up to $5,000", above: "Only the owner can approve" },
-  { action: "Self-approval", free: "Never", above: "The person who started a run can't approve it" },
+  { action: "Refunds", free: "Up to $200", above: "Operator, or admin over $500" },
+  { action: "Any amount", free: "Up to $5,000", above: "Only the owner" },
 ];
 
-const FACTS = [
-  {
-    title: "Runs survive crashes",
-    body: "Every run is a durable Temporal workflow. Kill the worker mid-booking and it finishes with exactly one booking.",
-  },
-  {
-    title: "Tenants can't see each other",
-    body: "Postgres row-level security on every table, and the agents' SQL tool runs under a narrower read-only role.",
-  },
-  {
-    title: "Retries never double-send",
-    body: "Side effects carry idempotency keys, so a retried step can't text a customer or charge a card twice.",
-  },
-  {
-    title: "Every step is on the record",
-    body: "Model calls, tool calls, handoffs, retries and decisions are spans with tokens and cost, streamed live.",
-  },
-];
-
-function NavBar() {
+function ChevronLink({ href, children }: { href: string; children: string }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-line/70 bg-paper/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-5 sm:px-8">
-        <Link to="/" aria-label="Oryn OS home">
-          <Logo />
-        </Link>
-        <nav aria-label="Site" className="hidden items-center gap-8 text-sm text-ink-2 md:flex">
-          <a href="#agents" className="hover:text-ink">
-            Agents
-          </a>
-          <a href="#approvals" className="hover:text-ink">
-            Approvals
-          </a>
-          <a href="#reliability" className="hover:text-ink">
-            Reliability
-          </a>
-          <a href={REPO} className="inline-flex items-center gap-1.5 hover:text-ink" target="_blank" rel="noreferrer">
-            <Code size={15} aria-hidden /> Source
-          </a>
-        </nav>
-        <div className="flex items-center gap-2">
-          <Link to="/login" className="hidden h-9 items-center rounded-lg px-3 text-sm font-medium text-ink-2 hover:bg-sunk hover:text-ink sm:inline-flex">
-            Sign in
-          </Link>
-          <Link to="/login" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-ink px-3.5 text-sm font-medium text-paper hover:bg-ink/85">
-            Open the demo
-          </Link>
-        </div>
-      </div>
-    </header>
+    <a href={href} target="_blank" rel="noreferrer" className="group inline-flex items-center gap-0.5 text-[17px] text-accent hover:underline">
+      {children}
+      <ChevronRight size={17} className="transition-transform group-hover:translate-x-0.5" aria-hidden />
+    </a>
   );
 }
 
+const H2 = "text-[36px] leading-[1.08] font-semibold tracking-[-0.028em] text-balance sm:text-[48px]";
+
 export default function Landing() {
   return (
-    <div className="min-h-dvh bg-paper text-ink">
-      <NavBar />
-      <main>
-        <section className="mx-auto grid max-w-[1200px] items-center gap-14 px-5 pt-16 pb-24 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:pt-24 lg:pb-32">
-          <div className="animate-[rise_420ms_var(--ease-out)]">
-            <h1 className="max-w-[12ch] text-[52px] leading-[0.98] font-semibold tracking-[-0.045em] [font-stretch:86%] sm:text-[76px]">
-              AI agents that ask before they act.
-            </h1>
-            <p className="mt-7 max-w-[34rem] text-[19px] leading-relaxed text-ink-2">
-              Oryn OS runs your sales, support, scheduling and back-office work end to end, and stops for a person before anything risky
-              happens. Try it: the run on the right is waiting for your call.
-            </p>
-            <div className="mt-9 flex flex-wrap items-center gap-3">
-              <Link
-                to="/login"
-                className="group inline-flex h-12 items-center gap-2 rounded-xl bg-ink px-5 text-[15px] font-medium text-paper transition-colors hover:bg-ink/85"
-              >
-                Open the live demo
-                <ArrowRight size={17} className="transition-transform group-hover:translate-x-0.5" aria-hidden />
-              </Link>
-              <a
-                href={REPO}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-12 items-center gap-2 rounded-xl border border-line-2 bg-panel px-5 text-[15px] font-medium hover:border-ink-3/50"
-              >
-                <Code size={17} aria-hidden /> Read the code
-              </a>
-            </div>
-            <p className="mt-6 text-sm text-ink-3">Runs offline with one command. Claude, Twilio and SMTP switch on with environment variables.</p>
+    <div className="min-h-dvh text-ink">
+      <header className="material sticky top-0 z-30 shadow-[0_0.5px_0_var(--line)]">
+        <div className="mx-auto flex h-12 max-w-[1240px] items-center justify-between px-5">
+          <Link to="/" aria-label="Oryn OS home">
+            <Logo className="scale-90" />
+          </Link>
+          <nav aria-label="Site" className="hidden items-center gap-8 text-[13px] text-ink-2 md:flex">
+            <a href="#how" className="hover:text-ink">
+              How it works
+            </a>
+            <a href="#agents" className="hover:text-ink">
+              Agents
+            </a>
+            <a href="#safety" className="hover:text-ink">
+              Safety
+            </a>
+            <a href={REPO} target="_blank" rel="noreferrer" className="hover:text-ink">
+              Source
+            </a>
+          </nav>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <Link to="/login" className="hidden text-[13px] text-ink-2 hover:text-ink sm:inline">
+              Sign in
+            </Link>
+            <Link to="/login" className="inline-flex h-7 items-center rounded-full bg-accent px-3.5 text-[12.5px] font-medium text-white hover:brightness-110">
+              Open the app
+            </Link>
           </div>
-          <div className="animate-[rise_520ms_var(--ease-out)]">
-            <LiveDemo />
+        </div>
+      </header>
+
+      <main>
+        <section className="px-5 pt-20 pb-10 text-center sm:pt-28">
+          <p className="animate-[rise_500ms_var(--ease-out)] text-[17px] font-semibold text-ink-2">Oryn OS</p>
+          <h1 className="mx-auto mt-3 max-w-[14ch] animate-[rise_600ms_var(--ease-out)] text-[48px] leading-[1.03] font-semibold tracking-[-0.035em] text-balance sm:text-[76px] lg:text-[88px]">
+            AI agents that ask before they act.
+          </h1>
+          <p className="mx-auto mt-6 max-w-[36ch] animate-[rise_700ms_var(--ease-out)] text-[19px] leading-snug text-balance text-ink-3 sm:text-[22px]">
+            Sales, support, scheduling and back-office work, done end to end. A person signs off on anything risky.
+          </p>
+          <div className="mt-9 flex animate-[rise_800ms_var(--ease-out)] flex-wrap items-center justify-center gap-x-8 gap-y-4">
+            <Link to="/login" className="inline-flex h-11 items-center rounded-full bg-accent px-6 text-[16px] font-medium text-white transition hover:brightness-110 active:scale-[0.98]">
+              Open the app
+            </Link>
+            <ChevronLink href={REPO}>Read the code</ChevronLink>
           </div>
         </section>
 
-        <section id="agents" className="scroll-mt-20 border-t border-line bg-panel">
-          <div className="mx-auto max-w-[1200px] px-5 py-24 sm:px-8">
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] lg:items-end">
-              <h2 className="max-w-[16ch] text-[40px] leading-[1.02] font-semibold tracking-[-0.035em] sm:text-[52px]">One board for your whole AI workforce.</h2>
-              <p className="max-w-xl text-[17px] leading-relaxed text-ink-2">
-                Specialized agents hand work to each other, share what they learn on the run, and remember customers between runs. You
-                watch all of it live, on one board.
-              </p>
-            </div>
-            <ol className="mt-16 grid border-y border-line sm:grid-cols-2 lg:grid-cols-5">
-              {AGENTS.map((a) => (
-                <li
-                  key={a.name}
-                  className="flex flex-col gap-3 border-t border-line py-7 first:border-t-0 sm:pr-6 sm:nth-2:border-t-0 lg:border-t-0 lg:border-l lg:px-6 lg:py-9 lg:first:border-l-0 lg:first:pl-0"
-                >
-                  <span className="text-[22px] font-semibold tracking-[-0.02em]">{a.name}</span>
-                  <span className="text-[15px] leading-relaxed text-ink-2">{a.job}</span>
-                  <span className="mt-auto pt-3 text-[13px] text-ink-3">{a.channels}</span>
+        <section aria-label="The app" className="px-3 pb-24 sm:px-6">
+          <div className="mx-auto max-w-[1240px] animate-[rise_900ms_var(--ease-out)]">
+            <LiveApp />
+            <p className="mx-auto mt-5 max-w-[60ch] text-center text-[13px] text-balance text-ink-3">
+              {DEMO
+                ? "This is the real interface, running in your browser on a recording of the system. Click around: open a run, or approve the request that's waiting."
+                : "The dashboard after you sign in."}
+            </p>
+          </div>
+        </section>
+
+        <section id="how" className="glass scroll-mt-14 border-y border-line/60 px-5 py-24 sm:py-28">
+          <div className="mx-auto max-w-[1100px]">
+            <h2 className={`${H2} max-w-[20ch]`}>How a lead becomes a booked meeting.</h2>
+            <ol className="mt-14 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+              {STEPS.map((s, i) => (
+                <li key={s.title} className="border-t border-line-2 pt-5">
+                  <p className="font-figure text-[15px] text-accent">{i + 1}</p>
+                  <p className="mt-3 text-[19px] font-semibold tracking-[-0.015em]">{s.title}</p>
+                  <p className="mt-2 text-[15px] leading-relaxed text-ink-3">{s.body}</p>
                 </li>
               ))}
             </ol>
           </div>
         </section>
 
-        <section id="approvals" className="scroll-mt-20 border-t border-line">
-          <div className="mx-auto grid max-w-[1200px] gap-14 px-5 py-24 sm:px-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-            <div>
-              <h2 className="max-w-[14ch] text-[40px] leading-[1.02] font-semibold tracking-[-0.035em] sm:text-[52px]">Your limits, enforced in code.</h2>
-              <p className="mt-6 max-w-md text-[17px] leading-relaxed text-ink-2">
-                Before an agent touches the outside world, one policy function decides whether a person must sign off, and how senior
-                they need to be. Approvals wait for days if they have to, escalate up the ladder, and never run twice.
-              </p>
-            </div>
-            <div className="overflow-hidden rounded-2xl border border-line bg-panel">
-              <table className="w-full text-left text-[15px]">
-                <thead className="text-[13px] text-ink-3">
-                  <tr className="border-b border-line">
-                    <th className="px-5 py-3 font-normal">Action</th>
-                    <th className="px-5 py-3 font-normal">Agents may do alone</th>
-                    <th className="px-5 py-3 font-normal">Above that</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {POLICY.map((p) => (
-                    <tr key={p.action}>
-                      <td className="px-5 py-4 font-medium">{p.action}</td>
-                      <td className="px-5 py-4 font-figure text-[22px]">{p.free}</td>
-                      <td className="px-5 py-4 text-ink-2">{p.above}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <p className="border-t border-line bg-paper/60 px-5 py-3 text-[13px] text-ink-3">Default policy. Each workflow can set its own limits.</p>
-            </div>
+        <section id="agents" className="scroll-mt-14 px-5 py-24 sm:py-28">
+          <div className="mx-auto max-w-[1100px]">
+            <h2 className={`${H2} max-w-[18ch]`}>Five specialists. One board.</h2>
+            <p className="mt-4 max-w-[52ch] text-[17px] text-ink-3">They hand work to each other, share what they learn on the run, and remember customers between runs.</p>
+            <ul className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              {AGENTS.map((a) => (
+                <li key={a.name} className="card flex flex-col gap-4 p-5">
+                  <IconTile icon={a.icon} color={a.color} size={36} />
+                  <div>
+                    <p className="text-[17px] font-semibold tracking-[-0.015em]">{a.name}</p>
+                    <p className="mt-1 text-[14px] leading-snug text-ink-3">{a.job}</p>
+                  </div>
+                  <p className="mt-auto text-[12px] text-ink-3">{a.channels}</p>
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
 
-        <section id="reliability" className="scroll-mt-20 border-t border-line bg-panel">
-          <div className="mx-auto max-w-[1200px] px-5 py-24 sm:px-8">
-            <h2 className="max-w-[18ch] text-[40px] leading-[1.02] font-semibold tracking-[-0.035em] sm:text-[52px]">Built like infrastructure, not a chatbot.</h2>
-            <dl className="mt-14 grid gap-x-10 gap-y-12 sm:grid-cols-2">
-              {FACTS.map((f) => (
-                <div key={f.title} className="border-t border-ink pt-5">
-                  <dt className="text-[20px] font-semibold tracking-[-0.015em]">{f.title}</dt>
-                  <dd className="mt-2 max-w-md text-[15px] leading-relaxed text-ink-2">{f.body}</dd>
+        <section id="safety" className="scroll-mt-14 px-5 pb-24 sm:pb-28">
+          <div className="mx-auto max-w-[1100px]">
+            <h2 className={`${H2} max-w-[20ch]`}>Safe by design. Built to last.</h2>
+            <div className="mt-12 grid gap-3 lg:grid-cols-6">
+              <div className="card p-7 lg:col-span-4">
+                <p className="text-[14px] font-semibold text-hold">Approvals</p>
+                <p className="mt-1.5 text-[26px] leading-tight font-semibold tracking-[-0.022em]">Your limits, enforced in code.</p>
+                <dl className="mt-6 divide-y divide-line/80">
+                  {POLICY.map((p) => (
+                    <div key={p.action} className="grid grid-cols-[1fr_auto] items-baseline gap-x-6 gap-y-1 py-3.5 sm:grid-cols-[140px_160px_1fr]">
+                      <dt className="text-[14px] text-ink-3">{p.action}</dt>
+                      <dd className="font-figure text-[22px] whitespace-nowrap">{p.free}</dd>
+                      <dd className="col-span-2 text-[14px] text-ink-2 sm:col-span-1">{p.above}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <p className="mt-3 text-[12px] text-ink-3">Defaults. Each workflow sets its own. Nobody can approve a run they started.</p>
+              </div>
+              <div className="card flex flex-col p-7 lg:col-span-2">
+                <p className="text-[14px] font-semibold text-clear">Durability</p>
+                <p className="mt-auto pt-8 font-figure text-[88px] leading-none">1</p>
+                <p className="mt-2 text-[17px] leading-snug font-semibold tracking-[-0.015em]">booking, after we killed the worker mid-booking.</p>
+                <p className="mt-1.5 text-[14px] text-ink-3">Every run is a Temporal workflow. Crashes resume; they don't repeat.</p>
+              </div>
+              {[
+                { icon: Lock, color: "indigo" as TileColor, title: "Tenants can't see each other.", body: "Postgres row-level security on every table. The agents' SQL tool runs under a read-only role." },
+                { icon: RotateCcw, color: "teal" as TileColor, title: "Retries never double-send.", body: "Side effects carry idempotency keys, so a retry can't text a customer or refund a card twice." },
+                { icon: Terminal, color: "gray" as TileColor, title: "Runs on your laptop.", body: "make up starts everything with no keys. Claude, Twilio and SMTP switch on with environment variables." },
+              ].map((t) => (
+                <div key={t.title} className="card p-7 lg:col-span-2">
+                  <IconTile icon={t.icon} color={t.color} size={36} />
+                  <p className="mt-5 text-[19px] leading-tight font-semibold tracking-[-0.018em]">{t.title}</p>
+                  <p className="mt-1.5 text-[14px] text-ink-3">{t.body}</p>
                 </div>
               ))}
-            </dl>
+            </div>
           </div>
         </section>
 
-        <section className="border-t border-line">
-          <div className="mx-auto flex max-w-[1200px] flex-col items-start justify-between gap-8 px-5 py-20 sm:px-8 md:flex-row md:items-end">
-            <h2 className="max-w-[18ch] text-[40px] leading-[1.02] font-semibold tracking-[-0.035em] sm:text-[52px]">See it run on two weeks of real history.</h2>
-            <Link
-              to="/login"
-              className="group inline-flex h-12 shrink-0 items-center gap-2 rounded-xl bg-accent px-5 text-[15px] font-medium text-white transition-colors hover:bg-accent/90"
-            >
-              Open the live demo
-              <ArrowRight size={17} className="transition-transform group-hover:translate-x-0.5" aria-hidden />
+        <section className="border-t border-line/70 px-5 py-24 text-center sm:py-28">
+          <h2 className="text-[44px] leading-none font-semibold tracking-[-0.035em] sm:text-[64px]">See it run.</h2>
+          <p className="mx-auto mt-4 max-w-[40ch] text-[17px] text-balance text-ink-3">Four demo roles, two weeks of history and a request waiting for a decision.</p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
+            <Link to="/login" className="inline-flex h-11 items-center rounded-full bg-accent px-6 text-[16px] font-medium text-white transition hover:brightness-110 active:scale-[0.98]">
+              Open the app
             </Link>
+            <ChevronLink href={REPO}>Read the code</ChevronLink>
           </div>
         </section>
       </main>
-      <footer className="border-t border-line">
-        <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-4 px-5 py-8 text-sm text-ink-3 sm:px-8">
-          <Logo className="opacity-80" />
+
+      <footer className="border-t border-line/70">
+        <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-4 px-5 py-6 text-[12px] text-ink-3">
           <p>A portfolio project. Every customer and number in the demo is made up.</p>
           <a href={REPO} target="_blank" rel="noreferrer" className="hover:text-ink">
             Source on GitHub

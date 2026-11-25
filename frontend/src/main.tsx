@@ -7,6 +7,7 @@ import { AuthProvider } from "@/auth/AuthProvider";
 import { ToastProvider } from "@/components/ui/toast";
 import "./index.css";
 
+
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 10_000, retry: 1, refetchOnWindowFocus: false } },
 });
